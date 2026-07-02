@@ -1,0 +1,14 @@
+framework: aiuc-1
+framework_version: v1
+taxonomy_version: { atlas: "v5.4.0", owasp_agentic: "2025-12" }
+entries:
+  - taxonomy_system: atlas
+    taxonomy_id: AML.T0051.001
+    controls:
+      - { control_id: B001 }
+      - { control_id: B005 }
+    verified_by: human
+  - taxonomy_system: owasp_agentic
+    taxonomy_id: ASI02
+    controls:
+      - { control_id: B006 }

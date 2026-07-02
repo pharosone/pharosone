@@ -1,0 +1,314 @@
+id: aiuc-1
+version: v1
+name: AIUC-1
+# Control TITLES are sourced verbatim from https://www.aiuc-1.com/ (6 categories A-F).
+# Full requirement wording, mandatory/optional flags, and density thresholds are NOT
+# published openly, so every control carries verification: { title: verified, wording: unverified }.
+# Density thresholds for B001/B006/B009 are seeded from the PharosOne product brief.
+# `behaviorally_testable` is an ENGINE ASSESSMENT pending human review (spec §5.3, §5.6):
+# controls examinable by behavioral probes are true; organizational/process/infra/telemetry
+# controls are false and must be closed by other evidence sources.
+controls:
+  # ---------------- A. Data & Privacy ----------------
+  - id: A001
+    category: A
+    title: "Establish input data policy"
+    mandatory: true
+    behaviorally_testable: false
+    verification: { title: "verified@aiuc-1.com", wording: unverified, notes: "policy/process control" }
+  - id: A002
+    category: A
+    title: "Establish output data policy"
+    mandatory: true
+    behaviorally_testable: false
+    verification: { title: "verified@aiuc-1.com", wording: unverified, notes: "policy/process control" }
+  - id: A003
+    category: A
+    title: "Limit AI agent data access"
+    mandatory: true
+    behaviorally_testable: true
+    verification: { title: "verified@aiuc-1.com", wording: unverified }
+  - id: A004
+    category: A
+    title: "Protect IP & trade secrets"
+    mandatory: true
+    behaviorally_testable: true
+    verification: { title: "verified@aiuc-1.com", wording: unverified }
+  - id: A005
+    category: A
+    title: "Prevent cross-customer data exposure"
+    mandatory: true
+    behaviorally_testable: true
+    verification: { title: "verified@aiuc-1.com", wording: unverified }
+  - id: A006
+    category: A
+    title: "Prevent PII leakage"
+    mandatory: true
+    behaviorally_testable: true
+    verification: { title: "verified@aiuc-1.com", wording: unverified }
+  - id: A007
+    category: A
+    title: "Prevent IP violations"
+    mandatory: true
+    behaviorally_testable: true
+    verification: { title: "verified@aiuc-1.com", wording: unverified }
+  # ---------------- B. Security ----------------
+  - id: B001
+    category: B
+    title: "Third-party testing of adversarial robustness"
+    mandatory: true
+    density_threshold: { min: 5, max: 7 }
+    behaviorally_testable: true
+    verification: { title: "verified@aiuc-1.com", wording: unverified, notes: "threshold from product brief" }
+  - id: B002
+    category: B
+    title: "Detect adversarial input"
+    mandatory: true
+    behaviorally_testable: true
+    verification: { title: "verified@aiuc-1.com", wording: unverified }
+  - id: B003
+    category: B
+    title: "Manage public release of technical details"
+    mandatory: true
+    behaviorally_testable: true
+    verification: { title: "verified@aiuc-1.com", wording: unverified }
+  - id: B004
+    category: B
+    title: "Prevent AI endpoint scraping"
+    mandatory: true
+    behaviorally_testable: false
+    verification: { title: "verified@aiuc-1.com", wording: unverified, notes: "infrastructure/rate-limit control" }
+  - id: B005
+    category: B
+    title: "Implement real-time input filtering"
+    mandatory: true
+    behaviorally_testable: true
+    verification: { title: "verified@aiuc-1.com", wording: unverified }
+  - id: B006
+    category: B
+    title: "Prevent unauthorized AI agent actions"
+    mandatory: true
+    density_threshold: { min: 5, max: 7 }
+    behaviorally_testable: true
+    verification: { title: "verified@aiuc-1.com", wording: unverified, notes: "threshold from product brief" }
+  - id: B007
+    category: B
+    title: "Enforce user access privileges to AI systems"
+    mandatory: true
+    behaviorally_testable: true
+    verification: { title: "verified@aiuc-1.com", wording: unverified }
+  - id: B008
+    category: B
+    title: "Protect AI system deployment environment"
+    mandatory: true
+    behaviorally_testable: false
+    verification: { title: "verified@aiuc-1.com", wording: unverified, notes: "config/access control — not behaviorally testable (spec §5.3)" }
+  - id: B009
+    category: B
+    title: "Limit output over-exposure"
+    mandatory: true
+    density_threshold: { min: 3, max: 5 }
+    behaviorally_testable: true
+    verification: { title: "verified@aiuc-1.com", wording: unverified, notes: "threshold from product brief" }
+  # ---------------- C. Safety ----------------
+  - id: C001
+    category: C
+    title: "Define AI risk taxonomy"
+    mandatory: true
+    behaviorally_testable: false
+    verification: { title: "verified@aiuc-1.com", wording: unverified, notes: "documentation control" }
+  - id: C002
+    category: C
+    title: "Conduct pre-deployment testing"
+    mandatory: true
+    behaviorally_testable: true
+    verification: { title: "verified@aiuc-1.com", wording: unverified }
+  - id: C003
+    category: C
+    title: "Prevent harmful outputs"
+    mandatory: true
+    behaviorally_testable: true
+    verification: { title: "verified@aiuc-1.com", wording: unverified }
+  - id: C004
+    category: C
+    title: "Prevent out-of-scope outputs"
+    mandatory: true
+    behaviorally_testable: true
+    verification: { title: "verified@aiuc-1.com", wording: unverified }
+  - id: C005
+    category: C
+    title: "Prevent customer-defined high risk outputs"
+    mandatory: true
+    behaviorally_testable: true
+    verification: { title: "verified@aiuc-1.com", wording: unverified }
+  - id: C006
+    category: C
+    title: "Prevent output vulnerabilities"
+    mandatory: true
+    behaviorally_testable: true
+    verification: { title: "verified@aiuc-1.com", wording: unverified }
+  - id: C007
+    category: C
+    title: "Flag high risk outputs for human review"
+    mandatory: true
+    behaviorally_testable: true
+    verification: { title: "verified@aiuc-1.com", wording: unverified }
+  - id: C008
+    category: C
+    title: "Monitor AI risk categories"
+    mandatory: true
+    behaviorally_testable: false
+    verification: { title: "verified@aiuc-1.com", wording: unverified, notes: "telemetry/monitoring control" }
+  - id: C009
+    category: C
+    title: "Enable real-time feedback and intervention"
+    mandatory: true
+    behaviorally_testable: false
+    verification: { title: "verified@aiuc-1.com", wording: unverified, notes: "operational control" }
+  - id: C010
+    category: C
+    title: "Third-party testing for harmful outputs"
+    mandatory: true
+    behaviorally_testable: true
+    verification: { title: "verified@aiuc-1.com", wording: unverified }
+  - id: C011
+    category: C
+    title: "Third-party testing for out-of-scope outputs"
+    mandatory: true
+    behaviorally_testable: true
+    verification: { title: "verified@aiuc-1.com", wording: unverified }
+  - id: C012
+    category: C
+    title: "Third-party testing for customer-defined risk"
+    mandatory: true
+    behaviorally_testable: true
+    verification: { title: "verified@aiuc-1.com", wording: unverified }
+  # ---------------- D. Reliability ----------------
+  - id: D001
+    category: D
+    title: "Prevent hallucinated outputs"
+    mandatory: true
+    behaviorally_testable: true
+    verification: { title: "verified@aiuc-1.com", wording: unverified }
+  - id: D002
+    category: D
+    title: "Third-party testing for hallucinations"
+    mandatory: true
+    behaviorally_testable: true
+    verification: { title: "verified@aiuc-1.com", wording: unverified }
+  - id: D003
+    category: D
+    title: "Restrict unsafe tool calls"
+    mandatory: true
+    behaviorally_testable: true
+    verification: { title: "verified@aiuc-1.com", wording: unverified }
+  - id: D004
+    category: D
+    title: "Third-party testing of tool calls"
+    mandatory: true
+    behaviorally_testable: true
+    verification: { title: "verified@aiuc-1.com", wording: unverified }
+  # ---------------- E. Accountability (organizational/process) ----------------
+  - id: E001
+    category: E
+    title: "AI failure plan for security breaches"
+    mandatory: true
+    behaviorally_testable: false
+    verification: { title: "verified@aiuc-1.com", wording: unverified, notes: "process control" }
+  - id: E002
+    category: E
+    title: "AI failure plan for harmful outputs"
+    mandatory: true
+    behaviorally_testable: false
+    verification: { title: "verified@aiuc-1.com", wording: unverified, notes: "process control" }
+  - id: E003
+    category: E
+    title: "AI failure plan for hallucinations"
+    mandatory: true
+    behaviorally_testable: false
+    verification: { title: "verified@aiuc-1.com", wording: unverified, notes: "process control" }
+  - id: E004
+    category: E
+    title: "Assign accountability"
+    mandatory: true
+    behaviorally_testable: false
+    verification: { title: "verified@aiuc-1.com", wording: unverified, notes: "governance control" }
+  - id: E005
+    category: E
+    title: "Document data storage security"
+    mandatory: true
+    behaviorally_testable: false
+    verification: { title: "verified@aiuc-1.com", wording: unverified, notes: "documentation control" }
+  - id: E006
+    category: E
+    title: "Conduct vendor due diligence"
+    mandatory: true
+    behaviorally_testable: false
+    verification: { title: "verified@aiuc-1.com", wording: unverified, notes: "process control" }
+  - id: E008
+    category: E
+    title: "Review internal processes"
+    mandatory: true
+    behaviorally_testable: false
+    verification: { title: "verified@aiuc-1.com", wording: unverified, notes: "process control" }
+  - id: E009
+    category: E
+    title: "Monitor third-party access"
+    mandatory: true
+    behaviorally_testable: false
+    verification: { title: "verified@aiuc-1.com", wording: unverified, notes: "telemetry/access control" }
+  - id: E010
+    category: E
+    title: "Establish AI acceptable use policy"
+    mandatory: true
+    behaviorally_testable: false
+    verification: { title: "verified@aiuc-1.com", wording: unverified, notes: "policy control" }
+  - id: E011
+    category: E
+    title: "Record processing locations"
+    mandatory: true
+    behaviorally_testable: false
+    verification: { title: "verified@aiuc-1.com", wording: unverified, notes: "documentation control" }
+  - id: E012
+    category: E
+    title: "Document regulatory compliance"
+    mandatory: true
+    behaviorally_testable: false
+    verification: { title: "verified@aiuc-1.com", wording: unverified, notes: "documentation control" }
+  - id: E013
+    category: E
+    title: "Implement quality management system"
+    mandatory: true
+    behaviorally_testable: false
+    verification: { title: "verified@aiuc-1.com", wording: unverified, notes: "process control" }
+  - id: E015
+    category: E
+    title: "Log AI system activity"
+    mandatory: true
+    behaviorally_testable: false
+    verification: { title: "verified@aiuc-1.com", wording: unverified, notes: "telemetry control" }
+  - id: E016
+    category: E
+    title: "Implement AI disclosure mechanisms"
+    mandatory: true
+    behaviorally_testable: false
+    verification: { title: "verified@aiuc-1.com", wording: unverified, notes: "feature attestation control" }
+  - id: E017
+    category: E
+    title: "Document system transparency policy"
+    mandatory: true
+    behaviorally_testable: false
+    verification: { title: "verified@aiuc-1.com", wording: unverified, notes: "documentation control" }
+  # ---------------- F. Society ----------------
+  - id: F001
+    category: F
+    title: "Prevent AI cyber misuse"
+    mandatory: true
+    behaviorally_testable: true
+    verification: { title: "verified@aiuc-1.com", wording: unverified }
+  - id: F002
+    category: F
+    title: "Prevent catastrophic misuse"
+    mandatory: true
+    behaviorally_testable: true
+    verification: { title: "verified@aiuc-1.com", wording: unverified }

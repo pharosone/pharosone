@@ -1,0 +1,60 @@
+PharosOne Probe Engine — third-party attributions
+==================================================
+
+The attack corpus (corpus/probes/*.yaml) includes probes whose attack TECHNIQUES are
+adapted from third-party open-source security research. Each probe records its origin in
+its `provenance` block (source + url). This NOTICE summarizes those derivations.
+
+Important: PharosOne adapts the attack *technique and a representative payload* and
+re-expresses it in the engine's own probe format and voice (multi-channel, multi-turn,
+capability-mapped, English). It does NOT vendor or redistribute the upstream projects'
+verbatim payload datasets. Where a probe's fidelity differs from the upstream (e.g. a
+non-text modality approximated on another channel, or a content-harm payload retargeted to
+a tool-misuse oracle), the probe's `provenance.source` carries a `fidelity:` note.
+
+
+garak — LLM vulnerability scanner (NVIDIA)
+------------------------------------------
+~58 probes under id `garak-*` adapt attack techniques from garak's probe modules
+(latentinjection, web_injection, ansiescape, packagehallucination, encoding, smuggling,
+badchars, dra, goodside, suffix, glitch, adaptive_attacks, atkgen, tap, goat, fitd, dan,
+continuation, realtoxicityprompts, lmrc, donotanswer, topic, grandma, doctor, misleading,
+phrasing, snowball, divergence, leakreplay, malwaregen, exploitation, apikey,
+av_spam_scanning, fileformats, sysprompt_extraction, sata, visual_jailbreak, audio,
+agent_breaker, propile).
+
+  Project:  garak — https://github.com/NVIDIA/garak
+  License:  Apache License 2.0 — https://www.apache.org/licenses/LICENSE-2.0
+  Use:      attack techniques adapted into PharosOne probe specs; garak source/datasets
+            are not redistributed. Per-probe attribution in provenance.source/url.
+
+This product includes software developed by NVIDIA CORPORATION & AFFILIATES (garak),
+licensed under the Apache License, Version 2.0.
+
+
+Other third-party sources cited in probe provenance
+---------------------------------------------------
+  MCPTox                — tool-poisoning research — https://arxiv.org/abs/2508.14925
+  AgentDyn              — dynamic agent attack benchmark — https://arxiv.org/abs/2602.03117
+  agent_threat_bench    — agent threat scenarios (Inspect Evals, UK AI Safety Institute) —
+                          https://github.com/UKGovernmentBEIS/inspect_evals
+
+Probes marked `source: "PharosOne (original)"` are original to this project.
+
+
+Standards and taxonomies
+------------------------
+The framework (frameworks/aiuc-1.yaml) and crosswalk (crosswalks/aiuc-1/crosswalk.yaml) reference
+the following third-party standards by their published control/technique identifiers and labels.
+These are cited for interoperability; the mappings are research-derived and flagged for SME review.
+
+  AIUC-1                — AI Usage & Controls standard — https://aiuc-1.com
+                          Control wordings are quoted from the published AIUC-1 text; treated as
+                          reference. Redistribution of the full catalogue is pending owner/legal review.
+  MITRE ATLAS           — Adversarial Threat Landscape for AI Systems — https://atlas.mitre.org
+  MITRE CWE             — Common Weakness Enumeration — https://cwe.mitre.org
+  OWASP Agentic         — OWASP Agentic Security Initiative / GenAI —
+                          https://genai.owasp.org
+
+MITRE ATLAS and CWE are © The MITRE Corporation; OWASP materials are © the OWASP Foundation.
+Identifiers and labels are used under their respective terms for reference and interoperability.

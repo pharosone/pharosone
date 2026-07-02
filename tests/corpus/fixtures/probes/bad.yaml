@@ -1,0 +1,9 @@
+id: broken
+title: "no evaluation"
+severity: low
+intent: "x"
+taxonomy_tags: []
+scenario:
+  type: single_turn
+provenance:
+  source: X

@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+
+# uv
+.uv/
+
+# Inspect AI
+logs/
+.inspect/
+
+# Test / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Env / secrets
+.env
+.env.*
+*.local
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+
+# Engine run artifacts (transcripts/evidence — may contain sensitive payloads & protected snippets)
+runs/
+reports/
+
+# Stray agent worktrees (local only)
+.claude/worktrees/
+
+# Customer onboarding artifacts: the shipped examples (configs/profiles/*, harness/example-agent/)
+# are tracked deliberately. When you onboard a REAL agent, keep its profile + harness private, e.g.:
+#   configs/profiles/<your-agent>.yaml
+#   harness/<your-agent>/

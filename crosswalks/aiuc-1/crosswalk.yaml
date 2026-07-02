@@ -1,0 +1,237 @@
+framework: aiuc-1
+framework_version: v1
+# Taxonomy versions pinned for audit reproducibility (spec §5.6).
+taxonomy_version:
+  atlas: "2026-agent-update"      # MITRE ATLAS incl. late-2025/2026 agent techniques (T0080/T0086/T0101/T0110)
+  owasp_agentic: "2025-12"        # OWASP Top 10 for Agentic Applications (Dec 2025)
+  cwe: "4.16"
+# CRITICAL (spec §5.6): crosswalk maps taxonomy coordinate -> AIUC-1 control. Coordinates and
+# control titles are verified; the coordinate->control assignment is research-derived and flagged
+# for human review by a standards SME before audit use. Control wordings are never invented here.
+entries:
+  # ---- ATLAS: prompt injection family -> adversarial robustness + input filtering ----
+  - taxonomy_system: atlas
+    taxonomy_id: AML.T0051
+    controls: [{ control_id: B001 }, { control_id: B005 }]
+    verified_by: research-derived (human review pending)
+    notes: "LLM Prompt Injection (parent)"
+  - taxonomy_system: atlas
+    taxonomy_id: AML.T0051.000
+    controls: [{ control_id: B001 }, { control_id: B005 }]
+    verified_by: research-derived (human review pending)
+    notes: "Direct prompt injection -> generic override examines B001/B005"
+  - taxonomy_system: atlas
+    taxonomy_id: AML.T0051.001
+    controls: [{ control_id: B001 }, { control_id: B005 }]
+    verified_by: research-derived (human review pending)
+    notes: "Indirect prompt injection"
+  # ---- ATLAS: tool poisoning / unauthorized tool actions ----
+  - taxonomy_system: atlas
+    taxonomy_id: AML.T0110
+    controls: [{ control_id: B006 }, { control_id: D003 }, { control_id: B005 }]
+    verified_by: research-derived (human review pending)
+    notes: "AI Agent Tool Poisoning"
+  - taxonomy_system: atlas
+    taxonomy_id: AML.T0011.002
+    controls: [{ control_id: B006 }, { control_id: B002 }]
+    verified_by: research-derived (human review pending)
+    notes: "Poisoned AI Agent Tool (user execution)"
+  - taxonomy_system: atlas
+    taxonomy_id: AML.T0053
+    controls: [{ control_id: B006 }, { control_id: D003 }]
+    verified_by: research-derived (human review pending)
+    notes: "AI Agent Tool Invocation"
+  - taxonomy_system: atlas
+    taxonomy_id: AML.T0101
+    controls: [{ control_id: B006 }, { control_id: D003 }]
+    verified_by: research-derived (human review pending)
+    notes: "Data Destruction via AI Agent Tool Invocation"
+  - taxonomy_system: atlas
+    taxonomy_id: AML.T0048.000
+    controls: [{ control_id: B006 }, { control_id: D003 }]
+    verified_by: research-derived (human review pending)
+    notes: "Financial Harm (External Harms)"
+  # ---- ATLAS: exfiltration / data collection -> output over-exposure + data access + PII ----
+  - taxonomy_system: atlas
+    taxonomy_id: AML.T0086
+    controls: [{ control_id: B009 }, { control_id: A006 }, { control_id: A003 }]
+    verified_by: research-derived (human review pending)
+    notes: "Exfiltration via AI Agent Tool Invocation"
+  - taxonomy_system: atlas
+    taxonomy_id: AML.T0085.001
+    controls: [{ control_id: A003 }, { control_id: B009 }]
+    verified_by: research-derived (human review pending)
+    notes: "Data from AI Services: AI Agent Tools"
+  - taxonomy_system: atlas
+    taxonomy_id: AML.T0057
+    controls: [{ control_id: A006 }, { control_id: B009 }]
+    verified_by: research-derived (human review pending)
+    notes: "LLM Data Leakage"
+  # ---- ATLAS: memory / context / RAG poisoning ----
+  - taxonomy_system: atlas
+    taxonomy_id: AML.T0080
+    controls: [{ control_id: B001 }, { control_id: B005 }]
+    verified_by: research-derived (human review pending)
+    notes: "AI Agent Context Poisoning (memory)"
+  - taxonomy_system: atlas
+    taxonomy_id: AML.T0070
+    controls: [{ control_id: B001 }, { control_id: B005 }]
+    verified_by: research-derived (human review pending)
+    notes: "RAG Poisoning"
+  # ---- OWASP Agentic Top 10 (Dec 2025) ----
+  - taxonomy_system: owasp_agentic
+    taxonomy_id: ASI01
+    controls: [{ control_id: B001 }, { control_id: B006 }]
+    verified_by: research-derived (human review pending)
+    notes: "Agent Goal Hijack"
+  - taxonomy_system: owasp_agentic
+    taxonomy_id: ASI02
+    controls: [{ control_id: B006 }, { control_id: D003 }]
+    verified_by: research-derived (human review pending)
+    notes: "Tool Misuse"
+  - taxonomy_system: owasp_agentic
+    taxonomy_id: ASI03
+    controls: [{ control_id: B007 }, { control_id: B006 }]
+    verified_by: research-derived (human review pending)
+    notes: "Identity & Privilege Abuse"
+  - taxonomy_system: owasp_agentic
+    taxonomy_id: ASI05
+    controls: [{ control_id: B006 }, { control_id: D003 }]
+    verified_by: research-derived (human review pending)
+    notes: "Unexpected Code Execution"
+  - taxonomy_system: owasp_agentic
+    taxonomy_id: ASI06
+    controls: [{ control_id: B001 }, { control_id: B005 }]
+    verified_by: research-derived (human review pending)
+    notes: "Memory & Context Poisoning"
+  - taxonomy_system: owasp_agentic
+    taxonomy_id: ASI09
+    controls: [{ control_id: B001 }, { control_id: B005 }]
+    verified_by: research-derived (human review pending)
+    notes: "Human-Agent Trust Exploitation"
+  # ---- CWE (software-weakness coordinates; secondary) ----
+  - taxonomy_system: cwe
+    taxonomy_id: CWE-1427
+    controls: [{ control_id: B001 }, { control_id: B005 }]
+    verified_by: research-derived (human review pending)
+    notes: "Improper Neutralization of Input Used for LLM Prompting"
+  - taxonomy_system: cwe
+    taxonomy_id: CWE-862
+    controls: [{ control_id: B006 }, { control_id: B007 }]
+    verified_by: research-derived (human review pending)
+    notes: "Missing Authorization"
+  - taxonomy_system: cwe
+    taxonomy_id: CWE-522
+    controls: [{ control_id: A003 }, { control_id: B009 }]
+    verified_by: research-derived (human review pending)
+    notes: "Insufficiently Protected Credentials"
+  - taxonomy_system: cwe
+    taxonomy_id: CWE-200
+    controls: [{ control_id: B009 }, { control_id: A006 }]
+    verified_by: research-derived (human review pending)
+    notes: "Exposure of Sensitive Information to an Unauthorized Actor"
+  - taxonomy_system: cwe
+    taxonomy_id: CWE-201
+    controls: [{ control_id: A006 }, { control_id: B009 }]
+    verified_by: research-derived (human review pending)
+    notes: "Insertion of Sensitive Information Into Sent Data"
+  - taxonomy_system: cwe
+    taxonomy_id: CWE-359
+    controls: [{ control_id: A006 }]
+    verified_by: research-derived (human review pending)
+    notes: "Exposure of Private Personal Information to an Unauthorized Actor"
+  # ---- NEW entries: taxonomy ids introduced by probes added after initial crosswalk ----
+  # ---- ATLAS: exfiltration via inference API ----
+  - taxonomy_system: atlas
+    taxonomy_id: AML.T0024
+    controls: [{ control_id: B009 }, { control_id: A006 }]
+    verified_by: research-derived (human review pending)
+    notes: "Exfiltration via ML Inference API -> output over-exposure + PII leakage"
+  # ---- OWASP Agentic: output integrity ----
+  - taxonomy_system: owasp_agentic
+    taxonomy_id: ASI07
+    controls: [{ control_id: D001 }, { control_id: B005 }, { control_id: C006 }]
+    verified_by: research-derived (human review pending)
+    notes: "Output Integrity Violation -> hallucination prevention + input filtering + prevent output vulnerabilities"
+  # ---- CWE: injection / tool-misuse family ----
+  - taxonomy_system: cwe
+    taxonomy_id: CWE-77
+    controls: [{ control_id: B005 }, { control_id: B006 }, { control_id: D003 }]
+    verified_by: research-derived (human review pending)
+    notes: "Improper Neutralization of Special Elements in a Command (Command Injection)"
+  - taxonomy_system: cwe
+    taxonomy_id: CWE-78
+    controls: [{ control_id: B005 }, { control_id: B006 }, { control_id: D003 }]
+    verified_by: research-derived (human review pending)
+    notes: "OS Command Injection -> input filtering + unauthorized agent actions + unsafe tool calls"
+  - taxonomy_system: cwe
+    taxonomy_id: CWE-79
+    controls: [{ control_id: B005 }, { control_id: C006 }]
+    verified_by: research-derived (human review pending)
+    notes: "Cross-site Scripting (XSS) / insecure output -> input filtering + prevent output vulnerabilities"
+  - taxonomy_system: cwe
+    taxonomy_id: CWE-94
+    controls: [{ control_id: B005 }, { control_id: B006 }, { control_id: D003 }]
+    verified_by: research-derived (human review pending)
+    notes: "Code Injection -> input filtering + unauthorized agent actions + restrict unsafe tool calls"
+  - taxonomy_system: cwe
+    taxonomy_id: CWE-116
+    controls: [{ control_id: B005 }, { control_id: C006 }]
+    verified_by: research-derived (human review pending)
+    notes: "Improper Encoding or Escaping of Output -> input filtering + prevent output vulnerabilities"
+  - taxonomy_system: cwe
+    taxonomy_id: CWE-345
+    controls: [{ control_id: D001 }, { control_id: D002 }]
+    verified_by: research-derived (human review pending)
+    notes: "Insufficient Verification of Data Authenticity -> hallucination prevention + third-party hallucination testing"
+  - taxonomy_system: cwe
+    taxonomy_id: CWE-400
+    controls: [{ control_id: B006 }, { control_id: C004 }]
+    verified_by: research-derived (human review pending)
+    notes: "Uncontrolled Resource Consumption (DoS/token exhaustion) -> unauthorized agent actions + prevent out-of-scope outputs"
+  - taxonomy_system: cwe
+    taxonomy_id: CWE-918
+    controls: [{ control_id: B005 }, { control_id: B006 }, { control_id: D003 }]
+    verified_by: research-derived (human review pending)
+    notes: "Server-Side Request Forgery (SSRF) -> input filtering + unauthorized agent actions + restrict unsafe tool calls"
+  # ---- NEW entries: coding/deploy-agent threat pack (supply-chain / deploy / CI tamper) ----
+  - taxonomy_system: cwe
+    taxonomy_id: CWE-506
+    controls: [{ control_id: B006 }, { control_id: D003 }]
+    verified_by: research-derived (human review pending)
+    notes: "Embedded Malicious Code -> prevent unauthorized agent actions + restrict unsafe tool calls (backdoor/exfil written into code)"
+  - taxonomy_system: cwe
+    taxonomy_id: CWE-434
+    controls: [{ control_id: B006 }, { control_id: D003 }]
+    verified_by: research-derived (human review pending)
+    notes: "Unrestricted Upload of File with Dangerous Type -> unauthorized agent actions + unsafe tool calls (unauthorized/unreviewed deploy)"
+  - taxonomy_system: cwe
+    taxonomy_id: CWE-829
+    controls: [{ control_id: B006 }, { control_id: D003 }, { control_id: A003 }]
+    verified_by: research-derived (human review pending)
+    notes: "Inclusion of Functionality from Untrusted Control Sphere -> unauthorized agent actions + unsafe tool calls + limit data access (poisoned-ticket-driven code/deploy)"
+  - taxonomy_system: cwe
+    taxonomy_id: CWE-95
+    controls: [{ control_id: B005 }, { control_id: D003 }]
+    verified_by: research-derived (human review pending)
+    notes: "Improper Neutralization of Directives in Dynamically Evaluated Code -> input filtering + restrict unsafe tool calls (CI gate tamper / eval)"
+  - taxonomy_system: atlas
+    taxonomy_id: AML.T0089
+    controls: [{ control_id: B006 }, { control_id: D003 }]
+    verified_by: research-derived (human review pending)
+    notes: "Dependency Substitution -> unauthorized agent actions + restrict unsafe tool calls (backdoored dependency)"
+  - taxonomy_system: atlas
+    taxonomy_id: AML.T0090
+    controls: [{ control_id: B006 }, { control_id: D003 }, { control_id: A003 }]
+    verified_by: research-derived (human review pending)
+    notes: "Supply Chain Compromise -> unauthorized agent actions + unsafe tool calls + limit data access (indirect code backdoor via ingested ticket)"
+  - taxonomy_system: cwe
+    taxonomy_id: CWE-22
+    controls: [{ control_id: B005 }, { control_id: B006 }, { control_id: A003 }]
+    verified_by: research-derived (human review pending)
+    notes: "Improper Limitation of a Pathname to a Restricted Directory (Path Traversal) -> input filtering + unauthorized agent actions + limit data access (sensitive-file-read path traversal)"
+  - taxonomy_system: cwe
+    taxonomy_id: CWE-538
+    controls: [{ control_id: B009 }, { control_id: A006 }, { control_id: A003 }]
+    verified_by: research-derived (human review pending)
+    notes: "Insertion of Sensitive Information into Externally-Accessible File or Directory -> limit output over-exposure + prevent PII leakage + limit data access (sensitive-file-read exfil)"

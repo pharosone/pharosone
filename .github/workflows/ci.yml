@@ -1,0 +1,65 @@
+name: CI
+
+# Offline test + corpus-integrity checks for the PharosOne Probe Engine.
+# The entire suite runs on the deterministic `mock` tier — no network, no API
+# keys, no Docker — so this workflow needs no secrets.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Cancel superseded runs on the same ref to save CI minutes.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: test (py${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13"]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --extra dev
+
+      - name: Run tests (offline)
+        run: uv run pytest -q
+
+  validate-corpus:
+    name: validate corpus / framework / crosswalk
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --extra dev
+
+      - name: Validate corpus, framework, and crosswalk
+        run: |
+          uv run probe-engine validate \
+            --corpus corpus/probes \
+            --framework frameworks/aiuc-1.yaml \
+            --crosswalk crosswalks/aiuc-1/crosswalk.yaml
