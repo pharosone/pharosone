@@ -5,6 +5,14 @@ description: Use when you need to locate the narrowest interception waist in an 
 
 # Find Agent Seams (locate the waists)
 
+> **Authorized defensive use.** This is red-team *certification* tooling for an AI agent you own or are
+> explicitly authorized in writing to test. Locating a waist is **static recon for observation** — it
+> finds where to *watch* the agent's real tool calls and where untrusted inputs enter, so weaknesses
+> can be measured and fixed. This recon step itself plants nothing and performs no real action. Most
+> seams the harness later cuts at **neutralize** side effects (record the call, don't execute it); the
+> one exception — the acceptance-tier `live_seed` — runs against a **consented, non-production staging**
+> environment only, with the operator's confirmation. See the repo's `SECURITY.md` (Responsible use).
+
 Second stage. Scan the agent's code for **waists** — chokepoints where many concerns funnel
 through one interface — and rank them. The harness will cut at the **narrowest reachable** one.
 
@@ -44,6 +52,15 @@ main context stays clean — instruct it to return ONLY the ranked JSON, no file
 | **DI constructor** (takes client objects) | 3 | `dep_mock` | card_field:*, tool_result:* (via fakes) |
 | raw **IO client** (`httpx base_url`, MCP transport) | 4 | `wire_stub` | card_field:*, tool_result:* |
 | real source (acceptance) | 5 | `live_seed` | all (real) |
+
+> **These are observation seams, not exploits.** Each technique lets the harness *see* the agent's
+> real tool calls and deliver an adversarial **test payload** (attack *content*, not executable code)
+> on an untrusted channel — the agent's reasoning stays real and is never patched. Tiers A–D
+> (`param_inject`/`monkeypatch`/`dep_mock`/`wire_stub`) **neutralize** effects: the dangerous call is
+> recorded behind a benign return, never performed. The acceptance-tier `live_seed` is the deliberate
+> exception — it drives the real agent end-to-end and does cause **real effects**, so it is for a
+> **consented, disposable staging** environment only (never production), with the operator's explicit
+> confirmation and teardown after. Higher fidelity **and** higher blast radius — scope it accordingly.
 
 ## Output
 

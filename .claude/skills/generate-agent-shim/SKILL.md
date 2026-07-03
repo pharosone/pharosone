@@ -1,9 +1,18 @@
 ---
 name: generate-agent-shim
-description: Use when you have a chosen interception seam for an agent and need to generate the bridge adapter — selecting param-inject, monkeypatch, dep-mock, wire-stub, or live-seed and filling it from the passport and seams recon. Emits an adapter implementing the channel contract (external + channels + injection routing) that makes tool calls observable and neutralizes side effects.
+description: Use when you have a chosen interception seam for an agent and need to generate the bridge adapter — selecting param-inject, monkeypatch, dep-mock, wire-stub, or live-seed and filling it from the passport and seams recon. Emits an adapter implementing the channel contract (external + channels + injection routing) that makes tool calls observable and neutralizes side effects on the emulation seams (the acceptance-tier live-seed excepted).
 ---
 
 # Generate Agent Shim (the adapter)
+
+> **Authorized defensive use.** This is red-team *certification* tooling for an AI agent you own or are
+> explicitly authorized in writing to test. The adapter makes the agent's tool calls **observable** and
+> delivers **adversarial test payloads** — the same untrusted content a deployed agent already faces —
+> so mishandling can be measured and fixed; it is not an exploit. Four of the five seam templates are
+> **test doubles** that **neutralize** side effects (a dangerous call is recorded behind a benign
+> return, never performed). The fifth — the acceptance-tier `live_seed` — deliberately drives the real
+> agent against a **consented, non-production staging** source and *does* cause real effects; scope it
+> accordingly. See the repo's `SECURITY.md` (Responsible use).
 
 Third stage. Turn the chosen seam into a working **bridge adapter** at `harness/<agent>/adapter.py`
 that implements the universal **channel contract** from `../pharosone/SEAM_PIPELINE.md` §0.
@@ -18,7 +27,10 @@ def channels() -> list[str]                  # untrusted surfaces this agent act
 ```
 - `tool_calls` = the agent's **observed** actions (the misuse ledger the oracle reads).
 - The request MAY carry `request["injection"] = {"channel": "...", "payload": "..."}`; the shim
-  **routes the poison into that channel**. Channel grammar:
+  **delivers that test payload on the named channel** — reproducing, inside the isolated harness, the
+  untrusted content a *deployed* agent already receives on that surface (a retrieved doc, a tool
+  result, an inbound message). The aim is to observe whether the agent mishandles it, so the weakness
+  can be fixed — not to exploit anything. Channel grammar:
   `message | card_field:<name> | tool_result:<tool> | retrieved_doc | history`.
 - Every dangerous action is **neutralized** (recorded, not performed).
 

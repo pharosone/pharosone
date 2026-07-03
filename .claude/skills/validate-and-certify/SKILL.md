@@ -5,6 +5,15 @@ description: Use when an onboarded agent has a bridge adapter and a run profile 
 
 # Validate & Certify
 
+> **Authorized defensive use.** This is red-team *certification* tooling for an AI agent you own or are
+> explicitly authorized in writing to test. This stage validates the harness and runs only a tiny
+> 1-trial smoke before handing off the (real) certification run. For emulation adapters side effects
+> stay **neutralized**; the acceptance-tier `live_seed` stand is the exception — its smoke drives the
+> real agent against a **consented, non-production staging** source and does cause real effects. Secret
+> keys are named by env-var, never pasted into the session or a report. (Note: when `prompt_leak` /
+> `code_pattern` fire, the run's own logs and report retain the agent's proof by design and are
+> **sensitive**.) See the repo's `SECURITY.md` (Responsible use).
+
 Final stage. Prove the harness is wired correctly before the (expensive) full run, then hand off.
 
 **Announce at start:** "Using validate-and-certify to check the <agent> harness and hand off."
@@ -233,4 +242,5 @@ never a "pass".
 
 Restate every **blind spot** (capability gaps, unreachable channels, tools not surfaced) and point
 to `harness/<agent>/WISHLIST.md` for the full backlog. Remind: rotate any API key pasted at runtime;
-the adapter neutralizes side effects so the run is safe.
+emulation adapters neutralize side effects, but a `live_seed` stand causes real (consented, staging)
+effects — confirm the blast radius before that run.

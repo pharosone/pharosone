@@ -5,6 +5,12 @@ description: Use when you need to determine HOW an agent is reachable for testin
 
 # Classify Agent Topology (the passport)
 
+> **Authorized defensive use.** This is red-team *certification* tooling for an AI agent you own or are
+> explicitly authorized in writing to test. This stage is **read-only recon**: it inventories the
+> agent's own tools, integrations, and system prompt to plan the test. Anything it reads (including the
+> system prompt) stays in the local passport — nothing is exfiltrated or sent to a third party. See the
+> repo's `SECURITY.md` (Responsible use).
+
 First stage of agent onboarding. Determine the agent's **topology** (how the test reaches it) and
 inventory its **tools + integrations + system prompt**, then write the passport that every later
 stage reads. Topology decides the viable **seam family**; the tool inventory decides the

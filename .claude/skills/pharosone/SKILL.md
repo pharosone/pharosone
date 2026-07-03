@@ -5,6 +5,13 @@ description: Use when the user wants to red-team / security-certify a real AI ag
 
 # PharosOne Security — Guided Agent Onboarding & Certification (interactive router)
 
+> **Authorized defensive use.** This is a dual-use red-team *certification* tool. Run it **only**
+> against an AI agent you own, operate, or are **explicitly authorized in writing** to test — never a
+> third party's without permission. It makes the agent misbehave inside an isolated harness so you can
+> measure and fix the weakness: side effects are **neutralized** (observed, not executed), secrets are
+> read from the environment only (never pasted into chat, logged, or written to a report), and defaults
+> run offline on the deterministic mock tier. No weaponization. See the repo's `SECURITY.md`.
+
 This skill turns a folder containing a real AI agent into a **ready-to-certify** PharosOne setup
 **and runs it**, as a guided conversation. It is a router: it greets, gathers the run contract
 through staged questions, then sequences five sub-skills (passing artifacts as files under
