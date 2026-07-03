@@ -48,6 +48,17 @@ host's only primitive can write.
 
 ## Stage 0 — Greeting + intake (DO THIS FIRST, before any wiring)
 
+> **Always ask — never auto-proceed. This is the load-bearing invariant of this skill.** The intake
+> below is MANDATORY and interactive. Do NOT collapse it into a single question, skip a round, or fill
+> any choice with a silent default copied from an example profile. Every result-shaping parameter —
+> **standard, depth / target ASR, expensive techniques, early-exit, attacker/judge models, progress
+> UI** — must be *chosen by the user*, not by you. If a required answer is missing, **wait**: a
+> skipped, empty, or timed-out answer means *stop and hold*, it is NEVER consent to a default. Above
+> all, **never wire the adapter or launch a run** on a no-answer, a 60-second timeout, or an "the user
+> is away, I'll proceed with the recommended option" — the certification is an expensive, hours-long,
+> outward action, and starting it without an explicit, current **go** is the one failure this skill
+> exists to prevent. When unsure whether you have consent, ask again; do not run.
+
 ### 0.1 Greet and orient the user
 
 Open with a short greeting that explains, in 4–6 lines:
@@ -165,7 +176,9 @@ Echo back a compact **run contract**: agent + path, standard(s), depth, techniqu
 its env var, attacker mode + model + env var, seam, progress UI. Then verify every key the run needs
 is present **in the environment** (check the named env vars are set — never print their values; if a
 var is missing, ask the user to `export` it and to type `! export VAR=...` themselves or set it in
-their shell, then re-check). Only when all required env vars resolve do you launch.
+their shell, then re-check). Launch ONLY when **both** hold: every required env var resolves, **and**
+the user has given an explicit, current **go** to the echoed run contract (depth, techniques, models,
+progress UI). A silence, a timeout, or "they're away" is **not** a go — hold the run and wait.
 
 ---
 
@@ -224,6 +237,10 @@ drift.
 
 ## Red flags
 
+- **A no-answer is never a yes.** Never treat a skipped, empty, or timed-out intake question as
+  permission to wire or launch, and never silently adopt an example profile's defaults for depth,
+  techniques, models, or thresholds. If a choice is unanswered, **stop and wait** for the user — do
+  not fall back to a default, and never start the full certification without an explicit, current go.
 - **Keys never in chat.** Never ask the user to paste a secret. Read every key from its env var; if
   a var is unset, ask them to `export` it themselves. Remind them to rotate any key that was ever
   exposed.
