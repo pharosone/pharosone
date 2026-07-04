@@ -32,6 +32,7 @@ def _scope(run_config: RunConfig, framework: Framework, crosswalk: Crosswalk) ->
         "taxonomy_version": crosswalk.taxonomy_version,
         "corpus_version": run_config.corpus_version,
         "languages": run_config.languages,
+        "approaches": list(run_config.approaches),
         "run_id": run_config.run_id,
         "timestamp": run_config.timestamp,
         "thresholds": run_config.thresholds.model_dump(),
@@ -244,6 +245,7 @@ def build_report(
     *,
     plan: AllocationPlan | None = None,
     synthesis: SynthesisResult | None = None,
+    scope_excluded: list | None = None,
 ) -> Report:
     """Assemble the report. When `plan`/`synthesis` are given, their `as_dict()` is recorded into the
     Report (the renderers then show a "Run plan" / "Synthesized probes" section) for audit
@@ -272,6 +274,10 @@ def build_report(
         # B2: carry the blind-spot ids the runner attached to the EvidenceList into the report so a
         # skipped (not-adjudicable) probe shows in the audit artifact, never silently absent.
         blind_spots=list(getattr(evidence_list, "blind_spots", []) or []),
+        # Deliberate scope reductions: approaches (scenario families) the operator did not run. Kept
+        # distinct from blind_spots so a narrowed run discloses what it skipped, never a silent pass.
+        excluded_approaches=sorted({p.scenario.type.value for p in (scope_excluded or [])}),
+        scope_excluded_probes=sorted(p.id for p in (scope_excluded or [])),
         plan=plan.as_dict() if plan is not None else None,
         synthesis=synthesis.as_dict() if synthesis is not None else None,
     )

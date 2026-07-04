@@ -1,10 +1,10 @@
 from pathlib import Path
 
-from probe_engine.config.profile import load_profile, run_config_from_profile
+from probe_engine.config.profile import RunProfile, load_profile, run_config_from_profile
 from probe_engine.corpus.loader import load_corpus
 from probe_engine.domain.run import RunConfig, TargetConfig, Thresholds, ToolSpec
 from probe_engine.run.executor import run_probe
-from probe_engine.run.selection import select_probes
+from probe_engine.run.selection import scope_excluded, select_probes
 from probe_engine.sandbox.tools import sandbox_tools
 
 ROOT = Path(__file__).parents[2]
@@ -37,6 +37,27 @@ def test_sandbox_tools_from_declared_inventory():
 
 def test_sandbox_tools_default_when_no_inventory():
     assert len(sandbox_tools(None, None)) == 3  # default move_file/read_file/send_message
+
+
+def test_profile_defaults_to_all_approaches():
+    """A profile that omits `approaches` runs all three scenario families (backward compatible)."""
+    rc = run_config_from_profile(load_profile(FIN), "r", "t")
+    assert rc.approaches == ["single_turn", "chain", "adaptive"]
+
+
+def test_profile_approaches_threads_and_narrows_selection():
+    """A profile that narrows `approaches` threads into RunConfig and gates the corpus accordingly —
+    the deselected families become scope exclusions, never silent passes."""
+    prof = RunProfile(approaches=["single_turn"])
+    rc = run_config_from_profile(prof, "r", "t")
+    assert rc.approaches == ["single_turn"]
+    corpus = load_corpus(CORPUS)
+    selected = select_probes(corpus, rc)
+    assert selected, "single-turn probes should still select"
+    assert all(p.scenario.type.value == "single_turn" for p in selected)
+    excluded = scope_excluded(corpus, rc)
+    assert excluded, "chain/adaptive probes should be surfaced as scope exclusions"
+    assert {p.scenario.type.value for p in excluded} <= {"chain", "adaptive"}
 
 
 def test_finance_profile_selects_finance_excludes_healthcare():

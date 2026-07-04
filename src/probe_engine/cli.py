@@ -9,6 +9,7 @@ import yaml
 
 from probe_engine.config.profile import load_profile, run_config_from_profile
 from probe_engine.corpus.loader import load_corpus
+from probe_engine.domain.enums import ScenarioType
 from probe_engine.domain.run import RunConfig, TargetConfig, Thresholds
 from probe_engine.mapping.loader import load_crosswalk, load_framework
 from probe_engine.plan.allocate import allocate
@@ -18,7 +19,7 @@ from probe_engine.report.builder import build_report
 from probe_engine.report.render_json import render_json
 from probe_engine.report.render_markdown import render_markdown
 from probe_engine.run.executor import run_corpus
-from probe_engine.run.selection import select_probes
+from probe_engine.run.selection import scope_excluded, select_probes
 from probe_engine.scoring.unverified import FP_PRONE_ORACLES, probe_oracle_kind
 from probe_engine.targets.agent_context import build_agent_context
 from probe_engine.targets.mock import MockPolicy
@@ -129,6 +130,12 @@ def run(
     ),
     n_variants: int = typer.Option(5),
     epochs: int = typer.Option(2),
+    approaches: str = typer.Option(
+        None,
+        help="comma-separated attack approaches to run: single_turn,chain,adaptive (default: all). "
+        "Narrowing is a deliberate scope reduction — excluded approaches are reported 'not tested "
+        "(scope)', never as robust.",
+    ),
     seed: int = typer.Option(1),
     mock_rule: str = typer.Option("by_fingerprint"),
     mock_threshold: int = typer.Option(30),
@@ -197,6 +204,18 @@ def run(
     if fail_fast:  # --fail-fast force-enables it on either path (a profile may also set it)
         run_config = run_config.model_copy(update={"fail_fast": True})
 
+    if approaches is not None:  # --approaches narrows the run to the named scenario families
+        chosen = [a.strip() for a in approaches.split(",") if a.strip()]
+        valid = {s.value for s in ScenarioType}
+        bad = [a for a in chosen if a not in valid]
+        if bad:
+            typer.echo(f"ERROR: unknown --approaches {bad}; valid: {sorted(valid)}")
+            raise typer.Exit(code=1)
+        if not chosen:
+            typer.echo("ERROR: --approaches must name at least one of: " + ", ".join(sorted(valid)))
+            raise typer.Exit(code=1)
+        run_config = run_config.model_copy(update={"approaches": chosen})
+
     if run_config.target.tier == "bridge" and not run_config.target.endpoint:
         typer.echo(
             "ERROR: bridge tier needs --endpoint <url> (the real agent's OpenAI-compatible "
@@ -209,6 +228,16 @@ def run(
         f"selected {len(selected)}/{len(probes)} probes "
         f"(industry={run_config.industry}, tools={run_config.available_tools or 'all'})"
     )
+    excluded = scope_excluded(probes, run_config)
+    if excluded:
+        by_type = sorted({p.scenario.type.value for p in excluded})
+        detail = ", ".join(
+            f"{t} ({sum(1 for p in excluded if p.scenario.type.value == t)})" for t in by_type
+        )
+        typer.echo(
+            f"approaches excluded {len(excluded)} probe(s) by scope choice: {detail} "
+            "— reported 'not tested (scope)', never robust"
+        )
     if not selected:
         typer.echo("ERROR: no probes apply to this run configuration")
         raise typer.Exit(code=1)
@@ -312,7 +341,9 @@ def run(
         log_dir=log_dir, api_key=api_key, display=display, progress=_progress,
         resume=resume, out_dir=str(out),
     )
-    report = build_report(run_config, fw, cw, evidence, plan=plan, synthesis=synthesis)
+    report = build_report(
+        run_config, fw, cw, evidence, plan=plan, synthesis=synthesis, scope_excluded=excluded
+    )
 
     out_dir = Path(out)
     out_dir.mkdir(parents=True, exist_ok=True)

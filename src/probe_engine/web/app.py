@@ -22,6 +22,7 @@ from fastapi.responses import (
 from pydantic import BaseModel, Field
 
 from probe_engine.corpus.loader import load_corpus
+from probe_engine.domain.enums import ScenarioType
 from probe_engine.domain.run import RunConfig, TargetConfig, Thresholds
 from probe_engine.mapping.loader import load_crosswalk, load_framework
 from probe_engine.report.builder import build_report
@@ -29,7 +30,7 @@ from probe_engine.report.model import Report
 from probe_engine.report.render_json import render_json
 from probe_engine.report.render_markdown import render_markdown
 from probe_engine.run.executor import run_probe
-from probe_engine.run.selection import select_probes
+from probe_engine.run.selection import scope_excluded, select_probes
 from probe_engine.targets.mock import MockPolicy
 
 _STATIC = Path(__file__).parent / "static"
@@ -62,6 +63,9 @@ class RunRequest(BaseModel):
     variation_strategy: str = "deterministic"
     n_variants: int = 5
     epochs: int = 2
+    # Attack approaches (scenario families) to run: single_turn / chain / adaptive. None = all three.
+    # Narrowing is a deliberate scope reduction — excluded approaches are reported "not tested (scope)".
+    approaches: list[str] | None = None
     seed: int = 1
     mock_rule: str = "by_fingerprint"
     mock_threshold: int = 30
@@ -127,6 +131,7 @@ def run_scan(
         variation_strategy=req.variation_strategy,
         n_variants=req.n_variants,
         epochs=req.epochs,
+        approaches=req.approaches or [s.value for s in ScenarioType],
         fail_fast=req.fail_fast,
         corpus_version="seed",
         thresholds=Thresholds(),
@@ -134,6 +139,7 @@ def run_scan(
         timestamp=datetime.now(timezone.utc).isoformat(),
     )
     selected = select_probes(probes, run_config)
+    excluded = scope_excluded(probes, run_config)
     emit(
         "started",
         {
@@ -142,6 +148,10 @@ def run_scan(
             "industry": req.industry,
             "selected": len(selected),
             "total": len(probes),
+            # Deliberate scope reductions: approaches (scenario families) not run, disclosed up front
+            # so the live view and report never read a narrowed run as robust against them.
+            "excluded_approaches": sorted({p.scenario.type.value for p in excluded}),
+            "scope_excluded": len(excluded),
             "probes": [
                 {
                     "probe_id": p.id,
@@ -177,7 +187,7 @@ def run_scan(
         evidences.append(ev)
         emit("probe_done", {"index": i, "total": len(selected), **_evidence_event(ev)})
 
-    report = build_report(run_config, fw, cw, evidences)
+    report = build_report(run_config, fw, cw, evidences, scope_excluded=excluded)
     report_dict = json.loads(render_json(report))
     emit("done", {"aggregates": report_dict["aggregates"], "scope": report_dict["scope"]})
     return report_dict

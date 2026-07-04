@@ -15,8 +15,15 @@ _SEVERITY_RANK = {
 }
 
 
-def probe_applies(probe: Probe, run_config: RunConfig) -> bool:
-    """Does this probe apply to the configured run context?"""
+def _in_approaches(probe: Probe, run_config: RunConfig) -> bool:
+    """Is this probe's attack approach (scenario family) inside the run's chosen `approaches`?"""
+    return probe.scenario.type.value in run_config.approaches
+
+
+def _applies_except_scope(probe: Probe, run_config: RunConfig) -> bool:
+    """Every applicability gate EXCEPT the approaches (scenario-family) scope. Kept separate so
+    `scope_excluded` can tell a deliberate scope reduction (approach not chosen) apart from a probe
+    that never applied to this agent at all."""
     app = probe.applicability
 
     # Industry: a non-"any" run keeps only universal ("any") probes and probes scoped
@@ -64,6 +71,23 @@ def probe_applies(probe: Probe, run_config: RunConfig) -> bool:
         return False
 
     return True
+
+
+def probe_applies(probe: Probe, run_config: RunConfig) -> bool:
+    """Does this probe apply to the configured run context AND fall inside the chosen approaches?
+    With the default all-approaches set this is identical to the pre-`approaches` behavior."""
+    return _applies_except_scope(probe, run_config) and _in_approaches(probe, run_config)
+
+
+def scope_excluded(probes: list[Probe], run_config: RunConfig) -> list[Probe]:
+    """Probes that would apply to this agent EXCEPT their attack approach (scenario family) is
+    outside the operator's chosen `approaches`. This is a DELIBERATE scope reduction — never a blind
+    spot (the oracle is adjudicable) and never a silent pass. The caller surfaces these as "not
+    tested (scope)" so a narrowed run is never read as robust against an approach it never ran."""
+    return [
+        p for p in probes
+        if _applies_except_scope(p, run_config) and not _in_approaches(p, run_config)
+    ]
 
 
 def reconcile_channels(declared: set[str], routable: set[str] | None) -> dict:

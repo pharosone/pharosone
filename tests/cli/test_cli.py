@@ -42,6 +42,40 @@ def test_run_command_writes_report(tmp_path):
     assert "overall_asr" in result.stdout
 
 
+def test_run_approaches_narrows_and_surfaces_scope_exclusion(tmp_path):
+    """--approaches single_turn runs only single-turn probes; the chain/adaptive probes are surfaced
+    as a scope exclusion in stdout and recorded in the report (never a silent pass)."""
+    out = tmp_path / "out"
+    result = runner.invoke(app, _base_run(out, tmp_path, "--approaches", "single_turn"))
+    assert result.exit_code == 0, result.stdout
+    assert "approaches excluded" in result.stdout
+    assert "not tested (scope)" in result.stdout
+    rep = json.loads((out / "report.json").read_text())
+    assert rep["scope"]["approaches"] == ["single_turn"]
+    assert set(rep["excluded_approaches"]) <= {"chain", "adaptive"}
+    assert rep["excluded_approaches"]  # something was excluded
+    assert rep["scope_excluded_probes"]
+    md = (out / "report.md").read_text()
+    assert "### Approaches not tested (scope choice)" in md
+
+
+def test_run_bad_approaches_errors(tmp_path):
+    out = tmp_path / "out"
+    result = runner.invoke(app, _base_run(out, tmp_path, "--approaches", "single_turn,telepathy"))
+    assert result.exit_code == 1
+    assert "unknown --approaches" in result.stdout
+
+
+def test_run_default_has_no_scope_exclusion(tmp_path):
+    """No --approaches -> all families run -> report omits the scope-exclusion keys (byte-compatible)."""
+    out = tmp_path / "out"
+    result = runner.invoke(app, _base_run(out, tmp_path))
+    assert result.exit_code == 0, result.stdout
+    assert "approaches excluded" not in result.stdout
+    js = (out / "report.json").read_text()
+    assert '"excluded_approaches"' not in js
+
+
 def test_run_bridge_without_endpoint_errors(tmp_path):
     result = runner.invoke(app, [
         "run", "--corpus", CORPUS, "--framework", FW, "--crosswalk", CW,

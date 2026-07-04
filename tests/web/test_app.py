@@ -34,6 +34,29 @@ def test_run_scan_emits_progress_and_builds_report(tmp_path):
     assert report["aggregates"]["overall_asr"] == 1.0  # mock rule "always"
 
 
+def test_approaches_narrows_run_and_surfaces_scope_exclusion(tmp_path):
+    """RunRequest.approaches gates the corpus; the started event discloses the excluded families and
+    the report carries them (never a silent pass). Default (None) runs everything."""
+    events = []
+    report = run_scan(_req(api_key=SECRET, approaches=["single_turn"]),
+                      lambda k, d: events.append((k, d)), log_dir=str(tmp_path / "logs"))
+    started = next(d for k, d in events if k == "started")
+    assert started["selected"] < 96  # chain/adaptive dropped
+    assert started["scope_excluded"] > 0
+    assert set(started["excluded_approaches"]) <= {"chain", "adaptive"}
+    assert set(report["excluded_approaches"]) <= {"chain", "adaptive"}
+    assert report["scope"]["approaches"] == ["single_turn"]
+
+
+def test_default_request_runs_all_approaches(tmp_path):
+    events = []
+    report = run_scan(_req(api_key=SECRET), lambda k, d: events.append((k, d)),
+                      log_dir=str(tmp_path / "logs"))
+    started = next(d for k, d in events if k == "started")
+    assert started["excluded_approaches"] == [] and started["scope_excluded"] == 0
+    assert report["scope"]["approaches"] == ["single_turn", "chain", "adaptive"]
+
+
 def test_api_key_never_leaks(tmp_path):
     events = []
     report = run_scan(_req(api_key=SECRET), lambda k, d: events.append((k, d)),

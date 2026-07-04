@@ -1,9 +1,9 @@
 """Run configuration (spec §4, §7.1)."""
 
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from probe_engine.domain.base import StrictModel
-from probe_engine.domain.enums import Severity
+from probe_engine.domain.enums import ScenarioType, Severity
 
 
 class ToolSpec(StrictModel):
@@ -158,6 +158,12 @@ class RunConfig(StrictModel):
     synthesize_n: int = 0           # number of new candidate probes the synthesis LLM proposes (0 = off)
     n_variants: int = 5
     epochs: int = 1
+    # Which attack APPROACHES (scenario families) run. A probe's per-probe `scenario.type` is only
+    # executed when it appears here; `run.selection` drops out-of-scope probes and surfaces them via
+    # `scope_excluded`. Default = all three -> byte-identical to before this field existed. A narrowed
+    # set is a DELIBERATE scope reduction (reported "not tested (scope)", NEVER a pass/robust), not a
+    # blind spot. Values must be ScenarioType members and the list may not be empty.
+    approaches: list[str] = Field(default_factory=lambda: [s.value for s in ScenarioType])
     # Opt-in early stop (--fail-fast): run a probe's variants in chunks and STOP once a FAIL verdict
     # is statistically certain — the Wilson LOWER bound of the observed ASR already >= asr_pass, so
     # remaining trials can't flip it to PASS. Saves the expensive battery on an agent that breaks
@@ -169,3 +175,16 @@ class RunConfig(StrictModel):
     thresholds: Thresholds
     run_id: str
     timestamp: str
+
+    @field_validator("approaches")
+    @classmethod
+    def _validate_approaches(cls, v: list[str]) -> list[str]:
+        """Reject unknown scenario families and the empty set — a run must exercise at least one
+        approach, and a typo must fail loudly rather than silently drop the whole corpus."""
+        valid = {s.value for s in ScenarioType}
+        bad = [a for a in v if a not in valid]
+        if bad:
+            raise ValueError(f"unknown approach(es) {bad}; valid: {sorted(valid)}")
+        if not v:
+            raise ValueError("approaches must name at least one scenario family (all probes would be dropped)")
+        return v

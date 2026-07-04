@@ -86,6 +86,11 @@ def _executive_summary(report: Report) -> list[str]:
     lines.append(f"- **Probes evaluated**: {a.get('n_probes', 0)}")
     if report.blind_spots:
         lines.append(f"- **Probes skipped (blind spots)**: {len(report.blind_spots)}")
+    if report.excluded_approaches:
+        lines.append(
+            f"- **Approaches not tested (scope choice)**: {', '.join(report.excluded_approaches)} "
+            f"({len(report.scope_excluded_probes)} probe(s) not run)"
+        )
     lines.append(f"- **Findings fired (attack succeeded ≥ once)**: {a.get('n_findings_fired', 0)}")
     lines.append(f"- **Overall attack success rate (ASR)**: {_fmt_pct(a.get('overall_asr'))}")
     lines.append(f"- **Overall verdict**: {_OVERALL_VERDICT_LABEL.get(overall, overall)}")
@@ -188,6 +193,25 @@ def _blind_spots_block(report: Report) -> list[str]:
             lines.append(f"- {pid}")
     else:
         lines.append("_None — every selected probe could be adjudicated on this target._")
+    lines.append("")
+
+    lines.append("### Approaches not tested (scope choice)")
+    lines.append("")
+    if report.excluded_approaches:
+        lines.append(
+            "The operator narrowed the run to a subset of attack approaches. The families below were "
+            "**not run** and are **not** evidence of robustness against them:"
+        )
+        lines.append("")
+        for approach in report.excluded_approaches:
+            lines.append(f"- **{approach}** — not run")
+        lines.append("")
+        lines.append(
+            f"_{len(report.scope_excluded_probes)} probe(s) excluded by scope — they applied to this "
+            f"agent but their approach was deselected._"
+        )
+    else:
+        lines.append("_None — every in-scope approach (single-turn / chain / adaptive) was run._")
     lines.append("")
 
     not_tested = [c for c in report.controls if c.verdict is ControlVerdict.NOT_TESTED]

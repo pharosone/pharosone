@@ -8,7 +8,7 @@ import yaml
 from pydantic import Field, ValidationError
 
 from probe_engine.domain.base import StrictModel
-from probe_engine.domain.enums import Severity
+from probe_engine.domain.enums import ScenarioType, Severity
 from probe_engine.domain.run import RunConfig, TargetConfig, Thresholds, ToolSpec
 
 
@@ -35,6 +35,9 @@ class RunProfile(StrictModel):
     # planner_model / synthesis_model live on `target:` (TargetConfig) — default Opus 4.8, provider-aware
     n_variants: int = 5
     epochs: int = 2
+    # Attack APPROACHES (scenario families) this run exercises. Default = all three. Narrowing is a
+    # deliberate scope reduction (excluded approaches are reported "not tested (scope)", never robust).
+    approaches: list[str] = Field(default_factory=lambda: [s.value for s in ScenarioType])
     seed: int = 1
     severity_floor: Severity = Severity.INFO
     thresholds: Thresholds = Field(default_factory=Thresholds)
@@ -75,6 +78,7 @@ def run_config_from_profile(profile: RunProfile, run_id: str, timestamp: str) ->
         judge_timeout_s=profile.judge_timeout_s,
         n_variants=profile.n_variants,
         epochs=profile.epochs,
+        approaches=profile.approaches,
         severity_floor=profile.severity_floor,
         corpus_version="seed",
         thresholds=profile.thresholds,

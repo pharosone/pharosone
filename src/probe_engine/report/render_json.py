@@ -42,6 +42,12 @@ def render_json(report: Report) -> str:
     # byte-compatible with before (mirrors the plan/synthesis handling above).
     if not report.blind_spots:
         exclude.add("blind_spots")
+    # Scope exclusions (deliberately de-selected approaches) default to [] — drop when empty so an
+    # unnarrowed run is byte-compatible with before this field existed (same rule as blind_spots).
+    if not report.excluded_approaches:
+        exclude.add("excluded_approaches")
+    if not report.scope_excluded_probes:
+        exclude.add("scope_excluded_probes")
     raw = report.model_dump_json(indent=2, exclude=exclude or None)
 
     # GUARD: annotate every UNVERIFIED evidence entry with a distinct human-facing `status_label`

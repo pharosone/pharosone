@@ -117,6 +117,11 @@ class Report(StrictModel):
     # Surfaced in the audit artifact so a skip is never invisible — never a silent pass (invariant 3).
     # Defaults to [] and is dropped from the JSON when empty (byte-compatible with before).
     blind_spots: list[str] = []
+    # DELIBERATE scope reductions: attack approaches (scenario families) the operator chose NOT to
+    # run, and the probe ids dropped for that reason. NOT blind spots, NOT passes — disclosed so a
+    # narrowed run never reads as robust against an approach it never exercised. Empty by default.
+    excluded_approaches: list[str] = []
+    scope_excluded_probes: list[str] = []
     # Audit reproducibility (spec): the trial-allocation plan (strategy + model + per-probe
     # n_variants/epochs) and the LLM-synthesis outcome (accepted ids + rejected triage reasons),
     # recorded verbatim as `AllocationPlan.as_dict()` / `SynthesisResult.as_dict()`. Both default
