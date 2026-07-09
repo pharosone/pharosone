@@ -1,0 +1,7 @@
+{
+  "name": "pharosone",
+  "description": "Guided red-team certification of a real AI agent with the PharosOne Probe Engine — classify topology, find the interception seam, generate the bridge adapter, build the run profile, validate, and run.",
+  "version": "0.1.1",
+  "author": { "name": "PharosOne", "email": "dmitry@pharosone.ai" },
+  "skills": "skills"
+}

@@ -1,0 +1,11 @@
+{
+  "name": "pharosone-marketplace",
+  "owner": { "name": "PharosOne", "email": "dmitry@pharosone.ai" },
+  "plugins": [
+    {
+      "name": "pharosone",
+      "source": ".",
+      "description": "Agent red-team certification suite (router + 5 sub-skills)"
+    }
+  ]
+}
