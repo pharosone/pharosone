@@ -2,6 +2,7 @@
 
 import uuid
 from datetime import datetime, timezone
+from enum import Enum
 from pathlib import Path
 
 import typer
@@ -23,6 +24,12 @@ from probe_engine.run.selection import scope_excluded, select_probes
 from probe_engine.scoring.unverified import FP_PRONE_ORACLES, probe_oracle_kind
 from probe_engine.targets.agent_context import build_agent_context
 from probe_engine.targets.mock import MockPolicy
+
+
+class ArtifactKind(str, Enum):
+    passport = "passport"
+    seams = "seams"
+
 
 app = typer.Typer(help="PharosOne Probe Engine")
 
@@ -384,6 +391,32 @@ def serve(
 
     typer.echo(f"Probe Engine UI -> http://{host}:{port}")
     uvicorn.run(web_app, host=host, port=port)
+
+
+@app.command("validate-artifacts")
+def validate_artifacts(
+    kind: ArtifactKind = typer.Argument(..., help="artifact kind: passport | seams"),
+    path: str = typer.Argument(..., help="path to a .json artifact or a .md file with a ```json block"),
+) -> None:
+    """Validate a pharosone onboarding artifact (passport/seams) against its schema + invariants."""
+    from probe_engine.onboarding.validate import ArtifactError, load_artifact, validate
+
+    p = Path(path)
+    if not p.exists():
+        typer.echo(f"error: file not found: {p}", err=True)
+        raise typer.Exit(1)
+    try:
+        instance = load_artifact(p)
+    except ArtifactError as exc:
+        typer.echo(f"error: {exc}", err=True)
+        raise typer.Exit(1)
+    errors = validate(kind.value, instance)
+    if errors:
+        typer.echo(f"INVALID: {p} ({kind.value}) — {len(errors)} problem(s):", err=True)
+        for error in errors:
+            typer.echo(f"  - {error}", err=True)
+        raise typer.Exit(1)
+    typer.echo(f"OK: {p} ({kind.value}) is valid.")
 
 
 if __name__ == "__main__":
