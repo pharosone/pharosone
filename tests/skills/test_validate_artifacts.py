@@ -9,7 +9,6 @@ so no inline imports are needed.
 """
 
 import copy
-import importlib.util
 import json
 import subprocess
 import sys
@@ -20,14 +19,8 @@ import pytest
 from probe_engine.plan.library_spec import CANONICAL_CAPABILITIES
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-VALIDATOR_PATH = (
-    REPO_ROOT / ".claude" / "skills" / "pharosone" / "scripts" / "validate_artifacts.py"
-)
 
-_spec = importlib.util.spec_from_file_location("pharosone_validate_artifacts", VALIDATOR_PATH)
-assert _spec is not None and _spec.loader is not None
-validator = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(validator)
+import probe_engine.onboarding.validate as validator
 
 
 # --- base fixtures (vocabulary-clean example-agent, faithful) -------------------------------
@@ -435,7 +428,7 @@ def test_load_artifact_invalid_json_raises(tmp_path: Path):
 
 def _run_cli(kind: str, path: Path) -> subprocess.CompletedProcess:
     return subprocess.run(
-        [sys.executable, str(VALIDATOR_PATH), kind, str(path)],
+        [sys.executable, "-m", "probe_engine.onboarding.validate", kind, str(path)],
         capture_output=True,
         text=True,
     )
