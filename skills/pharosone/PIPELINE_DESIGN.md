@@ -156,7 +156,7 @@ smoke (HTTP or `certify(n=1)`); print the certification command + how to read pa
 
 ## File layout to create
 ```
-.claude/skills/
+skills/
   pharosone/
     SKILL.md                      (rewrite → router)
     SEAM_PIPELINE.md  PIPELINE_DESIGN.md   (exist)

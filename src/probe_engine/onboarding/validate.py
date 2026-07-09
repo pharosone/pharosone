@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Zero-dependency validator for pharosone onboarding artifacts.
 
-The JSON schemas under ``pharosone/schemas/`` are the single source of truth for the
+The JSON schemas under ``probe_engine/onboarding/schemas/`` are the single source of truth for the
 STRUCTURE of the ``passport.json`` and ``seams.json`` artifacts. This validator reads
 those schemas at runtime and mechanically checks an artifact against them (types, enums,
 ``additionalProperties: false``, string patterns / channel grammar, capability vocabulary),
@@ -27,8 +27,12 @@ Semantic invariants (hand-coded cross-field rules, kept out of the schema on pur
     seam that can inject nothing is a false recommendation).
 
 CLI:
-    python validate_artifacts.py passport <path>
-    python validate_artifacts.py seams <path>
+    python -m probe_engine.onboarding.validate passport <path>
+    python -m probe_engine.onboarding.validate seams <path>
+
+Also exposed via the CLI as:
+    probe-engine validate-artifacts passport <path>
+    probe-engine validate-artifacts seams <path>
 
 ``<path>`` is either a ``.json`` file (parsed whole) or a markdown file with an embedded
 ```json fenced block (the machine block inside ``PASSPORT.md`` / ``SEAMS.md``). Exit code is
@@ -53,6 +57,7 @@ def load_schema(kind: str) -> dict[str, Any]:
     """Read and parse a packaged schema file by artifact kind."""
     resource = resources.files("probe_engine.onboarding.schemas").joinpath(_SCHEMA_FILES[kind])
     return json.loads(resource.read_text(encoding="utf-8"))
+
 
 # Match the FIRST ```json fenced block inside a markdown file (the artifact's machine block).
 _JSON_FENCE = re.compile(r"```[ \t]*json[^\n]*\n(.*?)```", re.DOTALL | re.IGNORECASE)

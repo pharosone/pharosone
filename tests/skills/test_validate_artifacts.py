@@ -3,9 +3,8 @@
 These exercise real validation LOGIC, not field presence: each negative case is crafted so
 that exactly one invariant is broken and the specific error message is asserted. The base
 fixtures are faithful copies of the vocabulary-clean example-agent artifacts, so the positive
-cases prove the schema matches real onboarding output. The validator module is loaded from
-its on-disk path (it is a skill script, not an installed package) via importlib at module top
-so no inline imports are needed.
+cases prove the schema matches real onboarding output. The validator is imported as the
+package module ``probe_engine.onboarding.validate``.
 """
 
 import copy
