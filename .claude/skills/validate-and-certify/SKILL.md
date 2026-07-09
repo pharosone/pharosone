@@ -147,7 +147,7 @@ Confirm: the adapter returns; `tool_calls` are surfaced; at least one probe reac
 Blind spots are a feedback loop, not a footnote. Gather **every** gap found so far — SEAMS
 `blind_spots`, the Step 4 channel-coverage gap, capabilities the corpus needs but no tool provides
 (Step 3), and any passport claim Step 2 REJECTED — into `harness/<agent>/WISHLIST.md` using
-`.claude/skills/pharosone/templates/wishlist_template.md`. This makes "what would make this harness
+`../pharosone/templates/wishlist_template.md`. This makes "what would make this harness
 stronger" a first-class, structured output instead of prose lost at the end of the handoff. Classify
 each entry:
 

@@ -38,7 +38,7 @@ main context stays clean — instruct it to return ONLY the ranked JSON, no file
 > "Read <repo>. Find every dispatch chokepoint and untrusted-input boundary. For each, return a
 > SEAMS entry: `{seam, file:line, narrowness, technique, channels[], recommended}`. Use the waist
 > taxonomy and narrowness rubric in
-> `.claude/skills/find-agent-seams/references/waist-detectors.md`. Flag channels the corpus needs
+> `references/waist-detectors.md`. Flag channels the corpus needs
 > but no seam can reach as `blind_spots`. Return JSON only."
 
 ## Waist taxonomy → technique (detail + detect patterns in `references/waist-detectors.md`)
