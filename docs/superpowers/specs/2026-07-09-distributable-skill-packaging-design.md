@@ -39,11 +39,13 @@ correctly across agents and projects:
   Zero hardcoded `.claude/skills/…` paths.
 - A **single canonical source** for the skills that serves all three consumers.
 - Versioned manifests and install docs covering both channels + the engine install.
+- **Publish `pharosone-security-scanner` 0.1.0 to PyPI now** so `pip install pharosone-security-scanner`
+  yields the `probe-engine` console script the decoupled skills depend on, and to claim the name. Done
+  ahead of the refactor as a name-claim; the CLI additions ship in a later version (0.1.1+).
 
 ## Non-goals (YAGNI)
 
-- Publishing `pharosone-security-scanner` to PyPI or listing in a public Cursor marketplace registry.
-  Git-based install (`uv add "… @ git+https://github.com/pharosone/pharosone"`) is sufficient now.
+- Listing in a public Cursor marketplace registry (git URL import is sufficient now).
 - Changing the certification behaviour, corpus, oracles, or report format.
 - Windows-first support; symlink fragility on Windows is documented, not solved.
 
@@ -104,6 +106,26 @@ correctly across agents and projects:
   Import by URL) and the engine install (`uv add`/`pip install … @ git+https://github.com/pharosone/pharosone`)
   so `probe-engine` is on PATH. State plainly: the skill is portable, but the *run* stages need the
   engine package present.
+
+### F. PyPI release of 0.1.0 (immediate, name-claim)
+
+- **Clean build via `git archive` of a committed ref** (not the working tree) so untracked customer
+  recon (`harness/<real-agent>/`, `configs/profiles/<real-agent>.yaml` — untracked and *not*
+  gitignored, only documented) can never enter the sdist. Verified: an `git archive HEAD` build's
+  sdist contains only tracked example profiles + `harness/example-agent/`; no `el-relocator` /
+  `.env` / `.pypirc`. Wheel ships only `probe_engine/`.
+- Build from **`main`** for the released 0.1.0 (mainline; excludes in-flight design docs).
+- **Auth:** the first upload of a new project name needs an **account-scoped** PyPI API token (a
+  project-scoped token can't exist before the project does), or PyPI Trusted Publishing. The token is
+  supplied by the user via `UV_PUBLISH_TOKEN` in the shell / `~/.pypirc` — **never pasted into chat**.
+- Publish with `uv publish` (sends token as `__token__`). Optional TestPyPI dry-run first
+  (`uv publish --publish-url https://test.pypi.org/legacy/`) to validate the flow without claiming the
+  real name.
+- **Immutability:** once `0.1.0` is uploaded it can never be re-uploaded (only yanked); the name is
+  claimed permanently. Requires an explicit, current go before upload.
+- README/`.gitignore` follow-up: add `harness/*/` and `configs/profiles/*` (minus the tracked
+  examples) to `.gitignore` and/or configure `[tool.hatch.build.targets.sdist]` include-list so future
+  builds are safe from the working tree, not only from `git archive`.
 
 ## Layout decision & known risk
 
