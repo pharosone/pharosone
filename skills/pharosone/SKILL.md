@@ -1,6 +1,6 @@
 ---
 name: pharosone
-description: Use when the user wants to red-team / security-certify a real AI agent with the PharosOne Probe Engine. Runs a GUIDED, interactive onboarding — greets the user and explains the engine + the stages, asks a staged set of choice/input questions (which agent repo, which standards + how much scope/cost, then after a first investigation: which models/keys for the target, which mode for the attacker, which adapter seam, which progress UI), then wires the agent (classify topology → find seam → generate bridge adapter → build profile → validate) and launches the certification with live progress. NEVER asks for secret keys in the session — only their env-var names.
+description: Use when the user wants to red-team / security-certify a real AI agent with the PharosOne Probe Engine. Runs a GUIDED, interactive onboarding — greets the user and explains the engine + the stages, asks a staged set of choice/input questions (which agent repo, which standards + how much scope/cost, then after a first investigation — which models/keys for the target, which mode for the attacker, which adapter seam, which progress UI), then wires the agent (classify topology → find seam → generate bridge adapter → build profile → validate) and launches the certification with live progress. NEVER asks for secret keys in the session — only their env-var names.
 ---
 
 # PharosOne Security — Guided Agent Onboarding & Certification (interactive router)
