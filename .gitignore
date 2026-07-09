@@ -43,3 +43,17 @@ reports/
 # are tracked deliberately. When you onboard a REAL agent, keep its profile + harness private, e.g.:
 #   configs/profiles/<your-agent>.yaml
 #   harness/<your-agent>/
+
+# Untracked real-agent onboarding output stays private and out of any build.
+# The shipped examples remain tracked via the negations below.
+harness/*/
+!harness/example-agent/
+configs/profiles/*.yaml
+!configs/profiles/bank-reset.yaml
+!configs/profiles/bridge-http-agent.yaml
+!configs/profiles/example-agent.yaml
+!configs/profiles/example-agent-p10.yaml
+!configs/profiles/finance-support-agent.yaml
+!configs/profiles/health-records.yaml
+!configs/profiles/healthcare-support-agent.yaml
+!configs/profiles/model-tier-example.yaml
