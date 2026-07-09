@@ -44,14 +44,22 @@ confidence intervals, and surfaced blind spots.
 You don't hand-write test harnesses. The **`pharosone` skill** onboards a real agent for you as a
 guided conversation.
 
-**1. Add the skill**
+**1a. Install the engine** (provides the `probe-engine` CLI the skills call)
 
 ```bash
-npx skills add pharosone/pharosone
+uv add pharosone-security-scanner        # or: pip install pharosone-security-scanner
 ```
 
-That installs the `pharosone` skill (and its sub-skills) into Claude Code — nothing to clone or set
-up by hand.
+**1b. Add the skills** — pick your agent:
+
+- **Claude Code / any agent** (cross-agent CLI):
+  ```bash
+  npx skills add pharosone/pharosone
+  ```
+- **Cursor** (native plugin): Settings → Plugins → Import, paste
+  `https://github.com/pharosone/pharosone`.
+
+The skill files are portable; the certification *run* uses the `probe-engine` package from step 1a.
 
 **2. Point it at your agent, in Claude Code**
 
