@@ -14,15 +14,18 @@ announce-at-start · artifacts passed as FILES under `harness/<agent>/` (durable
 **Single source of truth = the JSON schemas, not this prose.** The canonical structure of both
 machine blocks now lives in machine-readable, `additionalProperties:false` schemas, and a
 zero-dependency validator checks any artifact against them (mechanical structure) plus a few
-cross-field invariants (semantics) that a plain schema can't express:
+cross-field invariants (semantics) that a plain schema can't express. The validator + schemas now
+live in the `probe_engine.onboarding` package (shipped with the engine, not the skill) and are
+invoked via the `probe-engine validate-artifacts` CLI command:
 
-- `pharosone/schemas/passport.schema.json` — passport structure (topology grammar, integration
-  `name:kind` grammar, the canonical-capability enum from
+- `probe_engine/onboarding/schemas/passport.schema.json` — passport structure (topology grammar,
+  integration `name:kind` grammar, the canonical-capability enum from
   `build-run-profile/references/capability-vocabulary.md`, the canonical-channel enum from
   `CANONICAL_CHANNELS` in `src/probe_engine/domain/probe.py`).
-- `pharosone/schemas/seams.schema.json` — seams structure (the `technique` enum, `narrowness`,
-  the seam-channel grammar incl. parameterized forms like `tool_result:*` / `card_field:<name>`).
-- `pharosone/scripts/validate_artifacts.py` — the validator (stdlib only). It reads the schemas at
+- `probe_engine/onboarding/schemas/seams.schema.json` — seams structure (the `technique` enum,
+  `narrowness`, the seam-channel grammar incl. parameterized forms like `tool_result:*` /
+  `card_field:<name>`).
+- `probe_engine.onboarding.validate` — the validator (stdlib only). It reads the schemas at
   runtime for the **mechanical** checks (types, enums, `additionalProperties:false`, string
   patterns) and hand-codes the **semantic** invariants: passport `channels`/`blind_spots` must be
   disjoint; seams must have exactly one `recommended:true`, every `narrowness` in `1..5`, and the
@@ -30,8 +33,8 @@ cross-field invariants (semantics) that a plain schema can't express:
   purpose. Run it on a `.json` file OR a `.md` with an embedded ```json block:
 
   ```bash
-  python .claude/skills/pharosone/scripts/validate_artifacts.py passport harness/<agent>/PASSPORT.md
-  python .claude/skills/pharosone/scripts/validate_artifacts.py seams    harness/<agent>/SEAMS.md
+  probe-engine validate-artifacts passport harness/<agent>/PASSPORT.md
+  probe-engine validate-artifacts seams    harness/<agent>/SEAMS.md
   ```
 
 `harness/<agent>/PASSPORT.md` (+ a machine block `passport.json`) — illustrative (abridged) shape;

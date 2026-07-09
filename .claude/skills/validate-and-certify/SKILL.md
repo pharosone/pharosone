@@ -19,8 +19,8 @@ Final stage. Prove the harness is wired correctly before the (expensive) full ru
 **Announce at start:** "Using validate-and-certify to check the <agent> harness and hand off."
 
 **Structure vs. meaning — kept separate on purpose.** Two kinds of check run here. *Mechanical*
-checks (does the artifact match its schema?) are done by `validate_artifacts.py` (Step 0). *Semantic*
-checks (is a claim TRUE against the agent's source? is the coverage honest?) are done by the
+checks (does the artifact match its schema?) are done by `probe-engine validate-artifacts` (Step 0).
+*Semantic* checks (is a claim TRUE against the agent's source? is the coverage honest?) are done by the
 agents/subagents in Steps 2–6. A green mechanical check never certifies meaning — it only clears the
 structure so the semantic steps can be trusted.
 
@@ -41,12 +41,12 @@ Before any run, prove the onboarding artifacts are *structurally* sound. This is
 a truth check — deliberately separate from the semantic steps below.
 
 ```
-python .claude/skills/pharosone/scripts/validate_artifacts.py passport harness/<agent>/PASSPORT.md
-python .claude/skills/pharosone/scripts/validate_artifacts.py seams    harness/<agent>/SEAMS.md
+probe-engine validate-artifacts passport harness/<agent>/PASSPORT.md
+probe-engine validate-artifacts seams    harness/<agent>/SEAMS.md
 ```
 
-Schemas: `.claude/skills/pharosone/schemas/passport.schema.json`,
-`.claude/skills/pharosone/schemas/seams.schema.json`. The validator enforces:
+The passport/seams JSON schemas ship inside the probe-engine package
+(`probe_engine/onboarding/schemas/`); `probe-engine validate-artifacts` enforces:
 
 - **passport** — `topology` in the allowed enum; every tool has `dangerous` (bool) + `capabilities`
   drawn from the capability vocabulary; no unknown keys (`additionalProperties: false`); each
