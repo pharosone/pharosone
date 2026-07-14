@@ -84,6 +84,45 @@ Then move into the questions. Use the **AskUserQuestion** tool for every discret
 as selectable options and always allows a free-text "Other"); use plain prose only for free-form
 inputs that have no natural option list (a filesystem path, a model slug, an env-var name).
 
+### 0.1.2 Engine preflight — resolve `probe-engine` before asking anything else
+
+**Do this before Round A, every time — not just on a first run.** Spending a full intake (scope
+questions + topology/seam investigation + wiring) only to discover at the very end that the engine
+can't actually launch is the single worst failure mode of this skill — it happened in the field: a
+tester answered every question, waited through the whole investigation, and only then learned
+`probe-engine` wasn't installed. Catch that in seconds, up front, instead.
+
+Check, in order:
+1. Does `probe-engine` resolve (`command -v probe-engine`, or a known `$PROBE_ENGINE_DIR`/prior
+   profile checkout)?
+2. Does the **attack data** also resolve — `corpus/`, `frameworks/aiuc-1.yaml`,
+   `crosswalks/aiuc-1/crosswalk.yaml` under `$PROBE_ENGINE_DIR`, the current working tree, or beside
+   the resolved `probe-engine` checkout? **This is a separate check from step 1 — do not skip it just
+   because step 1 passed.** The code and the data ship separately by design (`CLAUDE.md` — "data is
+   decoupled from code"): the `uv`/PyPI package `pharosone-security-scanner` installs the
+   `probe_engine` Python code and the CLI (confirmed published and installable via `uv`), but the
+   corpus/framework/crosswalk YAML is versioned data that lives in the `pharosone/pharosone` git repo,
+   not inside the pip wheel. **Both** must resolve before the engine can actually run anything.
+
+**If both resolve** → say nothing about it and proceed straight to 0.1.5 / Round A.
+
+**If either is missing** → stop, before any scoping question, and ask (AskUserQuestion, header
+`Engine setup`, single-select):
+- `Install now (recommended)` — "Runs `uv tool install pharosone-security-scanner` to get the CLI
+  (published on PyPI), then clones `github.com/pharosone/pharosone` — the versioned attack corpus +
+  AIUC-1 framework + crosswalk, which ship separately from the code by design — into
+  `~/.pharosone/engine` and points `PROBE_ENGINE_DIR` at it for this session. Under a minute; nothing
+  runs against your agent yet." If `uv` itself isn't on PATH, say so and offer `pip install
+  pharosone-security-scanner` for the code half instead — same package, either tool works.
+- `I already have it elsewhere` — follow up in prose for the path (sets `PROBE_ENGINE_DIR`).
+- `Stop here for now` — halt immediately; do not proceed to Round A.
+
+On `Install now`, run both installs, then a real sanity check — `probe-engine validate --corpus …
+--framework … --crosswalk …` against the freshly-resolved data — before saying anything reassuring.
+Report the actual `validate` output (`probes=N controls=M entries=K / OK`), not just "installed". If
+either step fails (no network, neither `uv` nor `pip` present, clone rejected, `validate` errors),
+say exactly what failed and stop — never fall through to the full intake with a broken engine.
+
 ### 0.1.5 Reuse existing setup — skip redundant questions if already prepared
 
 As soon as you have the repo path (it may arrive as the skill argument), CHECK whether this agent is
@@ -109,23 +148,46 @@ or `inprocess.py`), and `configs/profiles/<agent>.yaml`.
    I'll study it and build the test stand." Use the skill argument if one was given; else ask.
    *Do not proceed without a readable path.*
 
-2. **AskUserQuestion — round A has five choices; AskUserQuestion takes at most 4 per call, so use
-   TWO calls (e.g. call 1 = Standards + Approaches + Depth; call 2 = Techniques + Early exit). Do not
-   drop a choice to fit one call.**
-   - **Standards** (header `Standards`, multiSelect): `AIUC-1 (recommended)`; plus any other
-     `frameworks/*.yaml` present. Describe AIUC-1 as the default audit standard with a research
-     crosswalk to ATLAS / OWASP-Agentic / CWE.
-   - **Attack approaches** (header `Approaches`, **multiSelect**, default all): which scenario
-     families of the 118-probe corpus to run. Present each with its corpus count and cost/time nuance
-     so the choice is informed — and state plainly that **deselecting one is a scope reduction that
-     will be reported "not tested (scope)", never as robust**:
-     - `Single-turn — 69 probes · 1 turn each · cheapest, broadest screening`
-     - `Multi-step chains — 37 probes · ~3× turns · medium cost, catches multi-message setups`
-     - `Adaptive multi-turn — 12 probes · attacker escalates per reply · ~8× cost · needs an attacker
-       model (chosen in round B)`
-     Recommend all three for a real certification. This maps to `approaches:` in the profile /
-     `--approaches` on the CLI; the engine drops out-of-scope probes and surfaces the excluded
-     families end-to-end (CLI, report, scorecard).
+2. **Standards — state it, don't force a question with one real choice.** `AskUserQuestion` requires
+   **≥2 options**; a single-standard environment is the common case (today this engine ships exactly
+   one: AIUC-1) and forcing a question with a lone "AIUC-1 (recommended)" option **crashes the tool
+   call** (`InputValidationError: options too_small`) — this has happened in the field and is a bad
+   first impression to open on. So: check how many `frameworks/*.yaml` actually resolve next to the
+   engine data.
+   - **Exactly one (AIUC-1 only)** → don't ask — **state it**: "Certifying against **AIUC-1** — the
+     only standard available here (research crosswalk to ATLAS / OWASP-Agentic / CWE)." and move on.
+   - **Two or more** → *now* ask (AskUserQuestion, header `Standards`, multiSelect): `AIUC-1
+     (recommended)` plus each other `frameworks/*.yaml` found, each with a one-line description.
+
+3. **AskUserQuestion — the remaining round-A choices are Approaches, Depth, Techniques, Early exit.
+   Give Approaches its OWN isolated call — do not batch it with anything else.** A batched multiSelect
+   answer for Approaches has been observed silently dropping from the tool result in the field (it
+   simply wasn't in the "answered" payload, forcing a re-ask) — isolating it removes one variable if
+   that recurs, and makes a missing/empty answer unambiguous to detect and re-ask immediately. Put
+   Depth + Techniques + Early exit in a second call (3 items, fits the 4-per-call limit).
+
+   **Call 1 — Approaches** (header `Approaches`, **multiSelect**, default all): which scenario
+   families of the 118-probe corpus to run. Present each with its corpus count and cost/time nuance
+   so the choice is informed — and state plainly that **deselecting one is a scope reduction that
+   will be reported "not tested (scope)", never as robust**:
+   - `Single-turn — 69 probes · 1 turn each · cheapest, broadest screening`
+   - `Multi-step chains — 37 probes · ~3× turns · medium cost, catches multi-message setups`
+   - `Adaptive multi-turn — 12 probes · attacker escalates per reply · ~8× cost · needs an attacker
+     model (chosen in round B)`
+   Recommend all three for a real certification. This maps to `approaches:` in the profile /
+   `--approaches` on the CLI; the engine drops out-of-scope probes and surfaces the excluded
+   families end-to-end (CLI, report, scorecard).
+
+   If the tool result has no answer at all for this question, re-ask it alone immediately — never
+   read a missing answer as "all" or as "none". **If the answer selects only one of the three
+   families**, that's a large scope cut worth a one-line confirm before locking it in (a single
+   stray click looks identical to a deliberate choice, and this exact case — one approach selected
+   where three were intended — has happened in the field): ask one more quick single-select
+   (AskUserQuestion, header `Confirm scope`): `Keep — <the one chosen> only` vs `Actually, let me add
+   more approaches` (looping back to the multiSelect if picked). Skip this confirm when 2 or 3 were
+   selected.
+
+   **Call 2:**
    - **Scope / depth (target ASR)** (header `Depth`, single, **Other = custom**): the attack-success
      rate the run is powered to detect — a lower bar means more trials per probe. State the bar AND
      its trials/probe, and say the **exact total attack count is confirmed before launch** (it depends
