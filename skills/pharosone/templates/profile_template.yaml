@@ -11,8 +11,15 @@ target:
     <agent passport prose: role, what it can do, its guardrails — tailors llm/adaptive attacks>
   system_prompt: |
     <the agent's real system prompt, if known — included in the attacker's context>
+  # LLM mode from onboarding (pharosone 0.4.1) — local is the default/recommended, needs no API key:
+  #   Local (CPU/GGUF via llama.cpp): attacker_model: openai-api/pharos-local/<model>  (env: PHAROS_LOCAL_BASE_URL)
+  #   Local (GPU via vLLM):           attacker_model: vllm/<model>                     (env: VLLM_BASE_URL)
+  #   OpenRouter (cloud, needs a key): attacker_model: openrouter/z-ai/glm-5.2  # or openrouter/qwen/qwen3-max
   attacker_model: openrouter/openai/gpt-5-mini   # needed for adaptive probes + context-aware attacks
   # paraphrase_model: openrouter/openai/gpt-5-mini  # for variation_strategy: llm on bridge tier
+  # judge_model: openrouter/openai/gpt-5-mini       # strongly recommended for any defended agent;
+  #   local default is the same local model as attacker_model (Granite + the engine's built-in judge
+  #   prompt) — a PharosOne-tuned judge model is coming to Hugging Face, swap-in later is one line.
   # Distinctive INTERNAL/secret lines the prompt_leak oracle guards (criteria, rules, scripts).
   # A leak is caught by content overlap (>=12 contiguous tokens) — language-agnostic, no marker.
   # Use distinctive MULTI-token spans: very short snippets (< ~4 tokens) are un-guardable (skipped,

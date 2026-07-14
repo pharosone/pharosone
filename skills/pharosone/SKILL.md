@@ -1,6 +1,6 @@
 ---
 name: pharosone
-description: Use when the user wants to red-team / security-certify a real AI agent with the PharosOne Probe Engine. Runs a GUIDED, interactive onboarding — greets the user and explains the engine + the stages, asks a staged set of choice/input questions (which agent repo, which standards + how much scope/cost, then after a first investigation — which models/keys for the target, which mode for the attacker, which adapter seam, which progress UI), then wires the agent (classify topology → find seam → generate bridge adapter → build profile → validate) and launches the certification with live progress. NEVER asks for secret keys in the session — only their env-var names.
+description: Use when the user wants to red-team / security-certify a real AI agent with the PharosOne Probe Engine. Runs a GUIDED, interactive onboarding — greets the user and explains the engine + the stages, asks a staged set of choice/input questions (which agent repo, which standards + how much scope/cost, then after a first investigation — local vs OpenRouter for the attacker/judge LLM, which model runs the target, which adapter seam, which progress UI), then wires the agent (classify topology → find seam → [deploy a local model if chosen] → generate bridge adapter → build profile → validate) and launches the certification with live progress. Local LLM mode needs no API key at all; NEVER asks for a secret key value in the session either way — only env-var names.
 ---
 
 # PharosOne Security — Guided Agent Onboarding & Certification (interactive router)
@@ -14,7 +14,7 @@ description: Use when the user wants to red-team / security-certify a real AI ag
 
 This skill turns a folder containing a real AI agent into a **ready-to-certify** PharosOne setup
 **and runs it**, as a guided conversation. It is a router: it greets, gathers the run contract
-through staged questions, then sequences five sub-skills (passing artifacts as files under
+through staged questions, then sequences its sub-skills (passing artifacts as files under
 `harness/<agent>/`) and launches the scan. The stage logic lives in the sub-skills; this file owns
 the **intake flow + orchestration**.
 
@@ -95,8 +95,8 @@ Then open with a short greeting that explains, in 4–6 lines:
   2. **Agree the tactics & scope** — standards, target ASR / depth, and whether to use the long /
      expensive techniques (LLM-paraphrase breadth, adaptive multi-turn, large fleets).
   3. **Agree the certification** — which standard(s) the report certifies against.
-  4. **Choose models & keys & modes** — what runs the target, what runs the attacker, local vs
-     server-prepared attacks, and the adapter seam.
+  4. **Choose models & keys & modes** — local vs OpenRouter for the attacker/judge (local needs no
+     key at all), what runs the target, and the adapter seam.
   5. **Run it** — wire the adapter, build the profile, validate, and launch with live progress.
 - **One ground rule, state it now:** "I will never ask you to paste a secret key into this chat.
   Put each key in an environment variable and tell me the **variable name** — I read keys from env
@@ -157,9 +157,12 @@ or `inprocess.py`), and `configs/profiles/<agent>.yaml`.
   the profile already answers (industry, tools, models, channels, depth, variation, seam). Instead:
   summarize the existing setup (agent, seam, models, depth, declared channels + blind spots), then ask
   ONLY what isn't fixed or that the user may want to change — **keep-or-override approaches**,
-  **depth/techniques**, **early-exit (fail_fast)**, **progress UI**, and the **key env-var check** — plus a
-  `Re-investigate (the agent code changed)` choice that falls through to the full flow. Then validate
-  (a quick smoke) and launch. A repeat run is then a couple of questions, not the whole intake.
+  **depth/techniques**, **early-exit (fail_fast)**, **keep-or-override LLM mode** (local vs
+  OpenRouter — the profile already records which one and its model; only re-ask if the user might
+  want to switch), **progress UI**, and the **key env-var check** (skipped entirely if the recorded
+  LLM mode is local) — plus a `Re-investigate (the agent code changed)` choice that falls through to
+  the full flow. Then validate (a quick smoke) and launch. A repeat run is then a couple of questions,
+  not the whole intake.
 - **Partially prepared** (some artifacts missing) → reuse what exists, run only the missing stages, and
   ask only the questions those stages need.
 - **Not prepared** → run the full flow (0.2 onward).
@@ -244,20 +247,97 @@ subagent; it returns ranked JSON) → `harness/<agent>/SEAMS.md` (ranked waists 
 model/provider, the **recommended seam**, and any channels the corpus needs that no seam can reach
 (blind spots — never hide these).
 
-### 0.4 Question round B — models, keys, modes, seam (ask AFTER investigation, informed by it)
+### 0.4 Question round B — LLM mode, models, keys, seam (ask AFTER investigation, informed by it)
 
 Phrase these against what 0.3 found. **Never ask for a key value — ask for the env-var name.**
+
+#### 0.4.1 LLM mode — ask this FIRST, explicitly, before any specific model or key
+
+This is the one choice that shapes everything else in Round B: it decides where the **attacker**
+model (adaptive turns / LLM-paraphrase, if Round A chose them) and the **judge** model (recommended
+whenever the agent is defended — almost every real certification) actually run. Ask it up front, on
+its own, before Target model / Attacker mode / Seam.
+
+**Skip it only if** Round A's Techniques was `None — deterministic` *and* Approaches excluded
+`Adaptive multi-turn` *and* 0.3's investigation found no defense layer worth a judge — in that one
+narrow case no LLM runs at all and there's nothing to decide. Otherwise, ask (AskUserQuestion, header
+`LLM mode`, single, **default/recommended = Local**):
+
+- **`Local (recommended)`** — "Runs the attacker and judge models on hardware you control — your
+  machine or a server you name. **Nothing about this agent's transcripts, its system prompt, or the
+  attack corpus leaves your infrastructure.** No API key of any kind is needed — a self-hosted server
+  doesn't check one. Tradeoff: you're spending your own compute, and a CPU-only box is slow for a deep
+  run (fine for `≤10%`/`≤5%` screening, painful for `≤2%`/`≤1%` with a large judge workload). This is
+  the right default for anything sensitive, cost-conscious, or offline."
+- **`OpenRouter (cloud)`** — "Calls a hosted frontier model over the network via your own OpenRouter
+  key. Faster, needs no local hardware, and gets you the strongest available attacker/judge quality
+  with zero setup beyond a key — but every attacker/judge call leaves your machine (OpenRouter + the
+  underlying model provider see the prompts), it costs per token, and you have to manage a key. Pick
+  this when you want the strongest possible red team and don't mind cloud calls, or don't have a GPU/
+  CPU budget to spare."
+
+Whichever the operator picks, **say the tradeoffs above out loud in your own text before they
+answer**, not just leave them buried in the option description — this is a real decision with a real
+privacy/cost/speed axis, not a formality.
+
+##### Branch: Local
+
+Dispatch to the **deploy-local-model** sub-skill once these are known (ask them here, in order — each
+with its own tradeoff explained before the question):
+
+1. **Model** (header `Local model`, single): `IBM Granite instruct (recommended)` — a strong, small,
+   permissively-licensed instruct model that's a good generalist attacker and, backed by the engine's
+   built-in judge prompt (`scoring/judge.py`'s strict red-team-judge template), a solid judge too. Note
+   plainly: **a PharosOne-tuned judge model is coming to Hugging Face soon**; today's local judge is
+   "Granite + a strong prompt," and swapping in the tuned one later is a one-line profile change, not
+   a re-onboarding. Offer `Other` for any Hugging Face repo the operator prefers.
+2. **Serving method** (header `Serving`, single): `CPU — GGUF via llama.cpp` (runs anywhere, no GPU
+   needed, nothing to install beyond the server binary; slow — single-digit tokens/sec for an 8B model
+   on a laptop CPU, fine for screening depth, a real bottleneck for a deep/`≤1%` run's judge volume)
+   vs `GPU — vLLM` (needs a CUDA GPU with ~16‑20GB VRAM at fp16, or ~8‑10GB quantized; far higher
+   throughput, viable for deep runs; heavier install — CUDA toolchain + a larger download). Recommend
+   GPU whenever the host has one and depth is past `≤5%`; CPU otherwise.
+3. **Location + install** (header `Local setup`, single): `Already running — I'll give you the
+   endpoint` (skip install; just record the `base_url` and which server it is) vs `Set it up for me`
+   (dispatch a subagent to install and launch it — on **this machine** or **a remote server** the
+   operator names; for remote, never ask for a password/private key in chat — confirm they already
+   have working SSH/API access the way this skill family always handles credentials, env-var name
+   only, never the value).
+
+Hand the model + serving + location answers to **deploy-local-model**; it returns the resolved Inspect
+model string(s) (e.g. `openai-api/pharos-local/<model>` with `PHAROS_LOCAL_BASE_URL`, or `vllm/<model>`
+with `VLLM_BASE_URL`) and confirms **no real secret was ever requested** — a placeholder key gets set
+because the client library requires *some* non-empty string, never because anything is actually
+gated on it. **This branch asks for zero keys, full stop** — carry that promise through: do not
+surface a key-name prompt anywhere else in Round B or the 0.6 key check for the attacker/judge models.
+
+##### Branch: OpenRouter
+
+1. **Attacker/judge model** (header `Router model`, single, **Other = custom**): default recommended
+   options are **`GLM-5.2`** and **the latest Qwen flagship** — both strong, cost-competitive
+   red-team-quality models on OpenRouter (verify the exact current OpenRouter slug at request time,
+   e.g. `z-ai/glm-5.2` / `qwen/qwen3-max` — the catalog changes; don't hardcode a stale one from an
+   example). `Other` lets the operator type any OpenRouter slug.
+2. Follow up in prose for the **env-var name** holding the OpenRouter key (e.g. `OPENROUTER_API_KEY`)
+   — never the value, exactly like the target-model key ask below.
+3. **State plainly:** "**PharosOne-hosted attacker/judge models are coming soon** — once available,
+   this branch won't need your own OpenRouter key at all. For now, OpenRouter is the cloud option."
+
+#### 0.4.2 Target model, attacker mode, seam
 
 **AskUserQuestion (one call):**
 - **Target model** (header `Target model`, single): offer the model(s) implied by the detected
   config (e.g. the provider/model in the agent's `config.yaml`/`.env.example`), plus `Use a cheaper
   stand-in (e.g. deepseek/deepseek-chat) to hold cost`. The user may pick `Other` to type a slug.
   Follow up in prose for the **env-var name** that holds the target's key (e.g. `OPENROUTER_API_KEY`).
+  This is the AGENT-under-test's own model — a separate axis from the 0.4.1 attacker/judge choice;
+  it always needs whatever key the agent's own provider requires, local-mode attacker/judge or not.
 - **Attacker / variation mode** (header `Attacker mode`, single):
   - `Deterministic — no attacker model (offline paraphrase/obfuscation only; nothing leaves your machine)`.
-  - `LLM-driven — your keys, attacks generated + judged on your machine` (all secrets stay local).
-  Follow up in prose for the attacker/paraphrase model slug + its **env-var name** (only if a
-  non-deterministic technique was chosen in round A).
+  - `LLM-driven — attacks generated on the backend chosen in 0.4.1` (local or OpenRouter, whichever
+    was picked — don't re-ask where it runs, just confirm whether adaptive turns use it at all).
+  Follow up in prose for the attacker/paraphrase model slug (only if a non-deterministic technique was
+  chosen in round A) — it's already resolved from 0.4.1, just confirm/override here.
 - **Adapter seam** (header `Seam`, single): present the `recommended: true` seam from SEAMS first,
   then the viable alternatives for this architecture, each with its one-line tradeoff (see the seam
   decision tree below). Default to the recommended one; only diverge if the user prefers a
@@ -279,38 +359,44 @@ Phrase these against what 0.3 found. **Never ask for a key value — ask for the
 ### 0.6 Confirm + key check, then proceed
 
 Echo back a compact **run contract**: agent + path, standard(s), **attack approaches + the exact
-attack count**, depth (target ASR), techniques, target model + its env var, attacker mode + model +
-env var, seam, progress UI. Compute the attack count now that selection is known:
-**`selected N probes × trials/probe` = total attacks** (state N after the 0.3 investigation gated the
-corpus by capability/channel *and* the chosen approaches). If the user deselected an approach, list
-it explicitly as **"won't run (scope) — reported not-tested, never robust"**. This concrete number is
-the last thing the user sees before they give the go. Then verify every key the run needs
-is present **in the environment** (check the named env vars are set — never print their values; if a
-var is missing, ask the user to `export` it and to type `! export VAR=...` themselves or set it in
-their shell, then re-check). Launch ONLY when **both** hold: every required env var resolves, **and**
-the user has given an explicit, current **go** to the echoed run contract (depth, techniques, models,
-progress UI). A silence, a timeout, or "they're away" is **not** a go — hold the run and wait.
+attack count**, depth (target ASR), techniques, **LLM mode (local/OpenRouter) + attacker/judge
+model**, target model + its env var, attacker mode, seam, progress UI. Compute the attack count now
+that selection is known: **`selected N probes × trials/probe` = total attacks** (state N after the
+0.3 investigation gated the corpus by capability/channel *and* the chosen approaches). If the user
+deselected an approach, list it explicitly as **"won't run (scope) — reported not-tested, never
+robust"**. This concrete number is the last thing the user sees before they give the go. Then verify
+every key the run *actually* needs is present **in the environment** (check the named env vars are
+set — never print their values; if a var is missing, ask the user to `export` it and to type
+`! export VAR=...` themselves or set it in their shell, then re-check). **If 0.4.1 resolved to Local,
+that contributes zero entries to this check** — don't invent a key prompt for a local deployment; the
+only keys left to verify (if any) are the target model's and, on the OpenRouter branch, the
+attacker/judge key. Launch ONLY when **both** hold: every required env var resolves, **and** the user
+has given an explicit, current **go** to the echoed run contract (depth, techniques, models, LLM
+mode, progress UI). A silence, a timeout, or "they're away" is **not** a go — hold the run and wait.
 
 ---
 
-## Stages 1–5 — wire the agent (driven by the intake answers)
+## Stages 1–6 — wire the agent (driven by the intake answers)
 
 Make a todo per item; do in order. These reuse the standalone sub-skills.
 
 1. **classify-agent-topology** → `harness/<agent>/PASSPORT.md`. *(already done in 0.3 — reuse it.)*
 2. **find-agent-seams** → `harness/<agent>/SEAMS.md`. *(already done in 0.3 — reuse it.)*
 3. **Pick the seam:** use the one chosen in round B (default = `recommended: true`).
-4. **generate-agent-shim** (with the chosen seam) → `harness/<agent>/adapter.py` implementing the
+4. **If 0.4.1 resolved to Local, run deploy-local-model** (already done in 0.4.1 if the operator
+   answered its questions there — reuse the resolved model string(s)/`base_url`; don't re-run it).
+5. **generate-agent-shim** (with the chosen seam) → `harness/<agent>/adapter.py` implementing the
    channel contract (`external()` + `channels()` + injection routing); neutralize side effects.
-5. **build-run-profile** → `configs/profiles/<agent>.yaml`, filled from the intake: industry +
+6. **build-run-profile** → `configs/profiles/<agent>.yaml`, filled from the intake: industry +
    description from the passport, tool→capability map, `protected_snippets`, the chosen models
    (`attacker_model` / `paraphrase_model` / **`judge_model` — set it whenever a defense layer
-   exists**, so a defended agent's refusals aren't miscounted as leaks), depth + thresholds from the
-   scope answer, **`approaches` from the Approaches answer** (the scenario families the user chose —
-   never a silent all-default when they narrowed it), `variation_strategy: llm` iff LLM-paraphrase was
-   chosen, **`fail_fast` from the early-exit answer** (+ optional `max_trials` cap).
+   exists**, so a defended agent's refusals aren't miscounted as leaks — local or OpenRouter model
+   string per the 0.4.1 LLM-mode answer), depth + thresholds from the scope answer, **`approaches`
+   from the Approaches answer** (the scenario families the user chose — never a silent all-default
+   when they narrowed it), `variation_strategy: llm` iff LLM-paraphrase was chosen, **`fail_fast` from
+   the early-exit answer** (+ optional `max_trials` cap).
 
-## Stage 6 — validate, then launch with live progress
+## Stage 7 — validate, then launch with live progress
 
 - **validate-and-certify** → `probe-engine validate` (corpus/framework/crosswalk load), capability
   alignment (`selected N/total`), channel coverage vs the adapter's `channels()`, and a **1-trial

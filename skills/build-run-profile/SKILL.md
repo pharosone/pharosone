@@ -55,12 +55,31 @@ false-positives on ordinary domain vocabulary. `prompt_leak` is high-precision/l
 ## Models
 
 - `attacker_model` — drives adaptive + context-aware attacks. A strong model (e.g.
-  `anthropic/claude-sonnet-4-6`) makes a stronger red team.
+  `anthropic/claude-sonnet-4-6`, or an OpenRouter slug like `z-ai/glm-5.2`/`qwen/qwen3-max`) makes a
+  stronger red team.
 - `paraphrase_model` + `variation_strategy: llm` — rephrases every seed in the agent's domain/
   language; stronger, more varied corpus.
 - `judge_model` (e.g. `openrouter/openai/gpt-5-mini`) — confirms binary-oracle hits, filtering a
   defended agent's false positives (refused-but-quoted-the-canary; replied/used-a-tool normally).
   Final success = binary AND judge. Strongly recommended for any agent with a defense layer.
+
+**Local vs OpenRouter — this is an onboarding choice (pharosone `0.4.1`), not a default to invent
+here.** Any of the three fields above accepts a plain Inspect AI model string, hosted or local —
+PharosOne passes it straight to `get_model(...)`, no interpretation. Local is the recommended default
+(nothing leaves the operator's infrastructure, no API key needed at all):
+
+| Backend | Model string | Env var | Real key needed? |
+|---|---|---|---|
+| Local — llama.cpp (CPU/GGUF) | `openai-api/pharos-local/<model>` | `PHAROS_LOCAL_BASE_URL` | No — placeholder only |
+| Local — vLLM (GPU) | `vllm/<model>` | `VLLM_BASE_URL` | No — placeholder only |
+| OpenRouter (cloud) | `openrouter/<vendor>/<model>` | `OPENROUTER_API_KEY` | Yes |
+
+A local deployment is set up by the **deploy-local-model** sub-skill (dispatched from pharosone's
+`0.4.1`, not from here) — by the time this skill runs, the model string is already resolved; just
+drop it into `attacker_model`/`paraphrase_model`/`judge_model` as given. Today's local judge default
+is Granite instruct + the engine's built-in judge prompt (`scoring/judge.py`); a PharosOne-tuned judge
+model is coming to Hugging Face — swapping it in later is a one-line change to `judge_model`, not a
+profile rebuild.
 
 ## Approaches (which attack families run)
 
