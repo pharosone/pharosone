@@ -62,7 +62,13 @@ host's only primitive can write.
 
 ### 0.1 Greet and orient the user
 
-Open with a short greeting that explains, in 4–6 lines:
+**First, show the banner.** Run `sh <this skill's directory>/assets/banner.sh` via Bash (the skill
+directory is the one containing this `SKILL.md`, alongside `templates/` — e.g.
+`.claude/skills/pharosone/assets/banner.sh`) and let its raw ANSI output print as-is; don't describe,
+paraphrase, or reformat it. This is cosmetic, not load-bearing — if the host can't run shell commands
+or doesn't render ANSI color, skip it silently and go straight to the greeting below.
+
+Then open with a short greeting that explains, in 4–6 lines:
 
 - **What the engine is:** a behavioral vulnerability scanner for AI agents. It mutates a versioned
   corpus of attack "probes", runs each many times against the target agent, scores hits with
