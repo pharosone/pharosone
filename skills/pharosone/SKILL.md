@@ -62,11 +62,27 @@ host's only primitive can write.
 
 ### 0.1 Greet and orient the user
 
-**First, show the banner.** Run `sh <this skill's directory>/assets/banner.sh` via Bash (the skill
-directory is the one containing this `SKILL.md`, alongside `templates/` — e.g.
-`.claude/skills/pharosone/assets/banner.sh`) and let its raw ANSI output print as-is; don't describe,
-paraphrase, or reformat it. This is cosmetic, not load-bearing — if the host can't run shell commands
-or doesn't render ANSI color, skip it silently and go straight to the greeting below.
+**First, show the banner — pick the variant for the host, don't guess wrong.** Raw ANSI (true-color
+escape codes) only renders as a colored box in a **literal interactive terminal** — a real Claude Code
+CLI session running in the user's own terminal emulator. It does **not** render in a browser-hosted
+session ("Claude Code on the web"), another agent's chat panel (Cursor, etc.), Slack, or any other
+chat-style UI that displays tool output as plain/markdown text — there, the escape bytes show up as
+garbled characters, which is worse than no banner at all. There is no reliable runtime signal to
+detect this (a captured subprocess isn't a tty either way), so **default to the safe, universal
+option** and only use color when you have a clear, concrete signal you're in a real terminal (e.g. the
+user explicitly says so, or the environment is unambiguously a local CLI install):
+
+- **Default — plain banner, printed as your own text.** Read `<skill dir>/assets/banner-plain.txt`
+  (no escape codes, just box-drawing + the wordmark) and put its exact contents in a fenced code block
+  in your own reply — do not run it through Bash. This renders identically and correctly everywhere:
+  terminal, web session, any chat UI.
+- **Only when you're confident this is a real interactive terminal** — run
+  `sh <skill dir>/assets/banner.sh` via Bash (the skill directory is the one containing this
+  `SKILL.md`, alongside `templates/` — e.g. `.claude/skills/pharosone/assets/banner.sh`) and let its
+  raw ANSI output print as-is, undescribed.
+
+Either way this is cosmetic, not load-bearing: if neither works (no shell, no file access), skip it
+silently and go straight to the greeting below.
 
 Then open with a short greeting that explains, in 4–6 lines:
 
