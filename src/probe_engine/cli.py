@@ -336,6 +336,10 @@ def run(
             # B2 blind-spot skip: the target can't adjudicate this probe's oracle/channel. ev is
             # None — surface it as a skip (never a silent pass), and DON'T touch ev (would crash).
             typer.echo(f"⊘ [{i}/{total}] {probe.id}: SKIPPED (blind spot — not adjudicable on target)")
+        elif phase == "error":
+            # D: every sample of this probe errored on the target (bridge 5xx/timeout, rate-limit).
+            # ev is None — surface it and continue; the battery isn't aborted, and a --resume retries it.
+            typer.echo(f"✗ [{i}/{total}] {probe.id}: ERRORED (no usable result — re-run with --resume)")
         else:
             typer.echo(
                 f"✓ [{i}/{total}] {probe.id}: {ev.n_success}/{ev.n_trials} "
@@ -359,9 +363,10 @@ def run(
 
     a = report.aggregates
     blind = f" blind_spots={len(report.blind_spots)}" if report.blind_spots else ""
+    errored = f" errored={len(report.errored_probes)}" if report.errored_probes else ""
     typer.echo(
         f"overall_asr={a['overall_asr']:.2%} covered={a['n_covered']} partial={a['n_partial']} "
-        f"uncovered={a['n_uncovered']} not_testable={a['n_not_testable']}{blind} -> {out_dir}"
+        f"uncovered={a['n_uncovered']} not_testable={a['n_not_testable']}{blind}{errored} -> {out_dir}"
     )
 
 

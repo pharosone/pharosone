@@ -274,6 +274,10 @@ def build_report(
         # B2: carry the blind-spot ids the runner attached to the EvidenceList into the report so a
         # skipped (not-adjudicable) probe shows in the audit artifact, never silently absent.
         blind_spots=list(getattr(evidence_list, "blind_spots", []) or []),
+        # Probes that errored out at run time (all samples failed on the target). Carried through so an
+        # errored probe is disclosed in the audit artifact, never silently absent — distinct from a
+        # blind-spot skip (scoping) and never counted as a pass.
+        errored_probes=list(getattr(evidence_list, "errored", []) or []),
         # Deliberate scope reductions: approaches (scenario families) the operator did not run. Kept
         # distinct from blind_spots so a narrowed run discloses what it skipped, never a silent pass.
         excluded_approaches=sorted({p.scenario.type.value for p in (scope_excluded or [])}),

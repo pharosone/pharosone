@@ -27,6 +27,9 @@ select against this agent and the oracles line up.
    optional `judge_model`.
 6. Set `approaches` — the scenario families to run — from the user's onboarding choice (see below).
 7. Set depth + thresholds for the target ASR.
+8. Set the run-safety knobs when they apply: `judge_batch_size` for a **local/CPU judge**, and
+   `max_connections` for a **bridge-tier** run against a rate-limited provider (see below). Skipping
+   these is what turned a real run into a multi-hour fight (judge context overflow + provider 429s).
 
 > **These come from the user, never from an example.** `approaches`, depth (`n_variants`/`epochs`),
 > and `thresholds` are result-shaping choices the operator makes in onboarding. Do NOT copy them from
@@ -80,6 +83,29 @@ drop it into `attacker_model`/`paraphrase_model`/`judge_model` as given. Today's
 is Granite instruct + the engine's built-in judge prompt (`scoring/judge.py`); a PharosOne-tuned judge
 model is coming to Hugging Face — swapping it in later is a one-line change to `judge_model`, not a
 profile rebuild.
+
+## Run-safety settings (set these or the run fights you)
+
+Two profile knobs are optional in general but **load-bearing** for the two configurations below.
+Both surfaced as multi-hour stalls in a real run when left at their defaults.
+
+- **`judge_batch_size` — set it (default `8`) whenever `judge_model` is a local/CPU server.** The
+  two-pass batch judge otherwise concatenates *all* of a probe's trials into ONE prompt (~32k tokens
+  at `≤10%` depth), which overflows a small-context llama.cpp server and **hangs the run on that
+  probe**. `judge_batch_size: N` splits it into chunks of N (small prompts, judged concurrently, and a
+  stuck chunk degrades to binary+UNVERIFIED instead of hanging). A cloud judge with a large context
+  doesn't strictly need it, but it's harmless there. Pair it with `judge_timeout_s` (default 60s) to
+  bound any single stuck judge call. `deploy-local-model` hands back the recommended value — use it.
+- **`max_connections` — set it (e.g. `6`) for a `bridge`-tier run whose provider rate-limits.** Inspect
+  ramps to ~100 parallel connections by default; against a real external agent (bridge) whose client
+  may have no 429 retry, that burst errors **every sample of a probe at once**, and the probe fails
+  hard. Capping connections keeps the run under the provider's limit. `0` (default) = Inspect's
+  adaptive default — fine for the mock tier and for providers you know tolerate the burst. This
+  replaces the old workaround of monkeypatching the engine's `eval` from the adapter.
+
+> A probe that still errors out despite these (transient 5xx, a burst that slips through) no longer
+> aborts the whole battery — the engine surfaces it in the report's `errored_probes` and continues;
+> a `--resume` run retries only those. So these knobs are about *avoiding* errors, not surviving them.
 
 ## Approaches (which attack families run)
 

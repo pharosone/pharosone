@@ -14,6 +14,7 @@ contract it relies on:
 * ``aggregates`` — rollups incl. ``by_control_verdict`` and ``overall_verdict``.
 * ``coverage`` / ``gaps`` — the density dimension (retained, back-compatible).
 * ``blind_spots`` — probes skipped at run time (present only when non-empty).
+* ``errored_probes`` — probes that errored out at run time, all samples failed (present only when non-empty).
 
 Serialization is deterministic: field order is fixed by the models and every list is sorted
 (controls in framework order, findings by severity then id, supporting_probes / mapped_controls /
@@ -42,6 +43,9 @@ def render_json(report: Report) -> str:
     # byte-compatible with before (mirrors the plan/synthesis handling above).
     if not report.blind_spots:
         exclude.add("blind_spots")
+    # errored_probes defaults to [] — drop it when empty so a clean run stays byte-compatible.
+    if not report.errored_probes:
+        exclude.add("errored_probes")
     # Scope exclusions (deliberately de-selected approaches) default to [] — drop when empty so an
     # unnarrowed run is byte-compatible with before this field existed (same rule as blind_spots).
     if not report.excluded_approaches:
