@@ -53,3 +53,29 @@ def test_bare_org_model_still_prefixed():
     tc = TargetConfig(tier="model", provider="openrouter", model="a/b",
                       paraphrase_model="ibm-granite/granite-4.1-3b")
     assert tc.resolved_paraphrase_model() == "openrouter/ibm-granite/granite-4.1-3b"
+
+
+def test_local_pharos_judge_survives_hosted_provider():
+    # The Local-onboarding judge (openai-api/... is a KNOWN local provider) must NOT be rewritten to
+    # openrouter/openai-api/... even under a hosted target — it points at the local llama.cpp endpoint.
+    tc = TargetConfig(
+        provider="openrouter",
+        judge_model="openai-api/pharos-judge/pharos-judge-free",
+    )
+    assert tc.resolved_judge_model() == "openai-api/pharos-judge/pharos-judge-free"
+
+
+def test_local_granite_attacker_paraphrase_survive_hosted_provider():
+    # The Local attacker/paraphrase Granite strings stay local under a hosted provider too.
+    tc = TargetConfig(
+        provider="openrouter",
+        model="anthropic/claude-3.5-sonnet",
+        attacker_model="openai-api/pharos-local/granite-4.1-3b",
+        paraphrase_model="openai-api/pharos-local/granite-4.1-3b",
+    )
+    assert tc.resolved_attacker_model() == "openai-api/pharos-local/granite-4.1-3b"
+    assert tc.resolved_paraphrase_model() == "openai-api/pharos-local/granite-4.1-3b"
+    # a vllm/ Granite 8b (another known local provider) is likewise never double-prefixed
+    tc2 = TargetConfig(provider="openrouter", model="a/b",
+                       attacker_model="vllm/ibm-granite/granite-4.1-8b")
+    assert tc2.resolved_attacker_model() == "vllm/ibm-granite/granite-4.1-8b"

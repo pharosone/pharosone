@@ -117,6 +117,46 @@ def test_profile_planner_synthesis_defaults_when_omitted(tmp_path):
     assert rc.target.resolved_synthesis_model() == "anthropic/claude-opus-4-8"
 
 
+def test_judge_kind_threshold_default_generate_and_none():
+    """A profile that omits the judge-verdict knobs keeps generate mode + no threshold (back-compat:
+    the tuned-judge logprobs path is strictly opt-in)."""
+    rc = run_config_from_profile(load_profile(FIN), "r", "t")
+    assert rc.judge_kind == "generate"
+    assert rc.judge_threshold is None
+
+
+def test_judge_logprobs_knobs_round_trip_into_run_config(tmp_path):
+    """`judge_kind: logprobs` + `judge_threshold: 0.68` are real RunProfile fields (StrictModel,
+    extra='forbid') and thread through run_config_from_profile into the RunConfig unchanged."""
+    p = tmp_path / "prof.yaml"
+    p.write_text(
+        "name: p\nindustry: any\n"
+        "judge_kind: logprobs\n"
+        "judge_threshold: 0.68\n",
+        encoding="utf-8",
+    )
+    prof = load_profile(p)
+    assert prof.judge_kind == "logprobs" and prof.judge_threshold == 0.68
+    rc = run_config_from_profile(prof, "r", "t")
+    assert rc.judge_kind == "logprobs"
+    assert rc.judge_threshold == 0.68
+
+
+def test_local_fully_local_profile_resolves_local_defaults():
+    """The shipped fully-local onboarding profile loads under StrictModel and resolves the Local
+    defaults: Granite in BOTH attacker + paraphrase, PharosOne's own judge, llm variation, and the
+    logprobs verdict at the Q8 operating point (0.68)."""
+    prof = load_profile(ROOT / "configs" / "profiles" / "local-fully-local.yaml")
+    rc = run_config_from_profile(prof, "r", "t")
+    granite = "openai-api/pharos-local/granite-4.1-3b"
+    assert rc.target.resolved_attacker_model() == granite
+    assert rc.target.resolved_paraphrase_model() == granite
+    assert rc.target.resolved_judge_model() == "openai-api/pharos-judge/pharos-judge-free"
+    assert rc.variation_strategy == "llm"
+    assert rc.judge_kind == "logprobs"
+    assert rc.judge_threshold == 0.68
+
+
 def test_system_prompt_reaches_model_agent(tmp_path):
     probe = {p.id: p for p in load_corpus(CORPUS)}["agentdyn-important-instructions"]
     rc = RunConfig(

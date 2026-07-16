@@ -62,27 +62,38 @@ false-positives on ordinary domain vocabulary. `prompt_leak` is high-precision/l
   stronger red team.
 - `paraphrase_model` + `variation_strategy: llm` — rephrases every seed in the agent's domain/
   language; stronger, more varied corpus.
-- `judge_model` (e.g. `openrouter/openai/gpt-5-mini`) — confirms binary-oracle hits, filtering a
-  defended agent's false positives (refused-but-quoted-the-canary; replied/used-a-tool normally).
-  Final success = binary AND judge. Strongly recommended for any agent with a defense layer.
+- `judge_model` (Local default: `openai-api/pharos-judge/pharos-judge-free`; cloud: e.g.
+  `openrouter/openai/gpt-5-mini`) — confirms binary-oracle hits, filtering a defended agent's false
+  positives (refused-but-quoted-the-canary; replied/used-a-tool normally). Final success = binary AND
+  judge. Strongly recommended for any agent with a defense layer.
 
 **Local vs OpenRouter — this is an onboarding choice (pharosone `0.4.1`), not a default to invent
 here.** Any of the three fields above accepts a plain Inspect AI model string, hosted or local —
 PharosOne passes it straight to `get_model(...)`, no interpretation. Local is the recommended default
-(nothing leaves the operator's infrastructure, no API key needed at all):
+(nothing leaves the operator's infrastructure, no API key needed at all). **The Local default is
+concrete:** the attacker is **IBM Granite 4.1** written into *both* `attacker_model` and
+`paraphrase_model` (with `variation_strategy: llm`); the judge is **PharosOne's own
+`pharos-judge-free`** with `judge_kind: logprobs` + `judge_threshold: 0.68`:
 
 | Backend | Model string | Env var | Real key needed? |
 |---|---|---|---|
-| Local — llama.cpp (CPU/GGUF) | `openai-api/pharos-local/<model>` | `PHAROS_LOCAL_BASE_URL` | No — placeholder only |
-| Local — vLLM (GPU) | `vllm/<model>` | `VLLM_BASE_URL` | No — placeholder only |
+| Local — attacker, llama.cpp (CPU/GGUF) | `openai-api/pharos-local/granite-4.1-3b` (`# or -8b`) | `PHAROS_LOCAL_BASE_URL` | No — placeholder only |
+| Local — attacker, vLLM (GPU) | `vllm/ibm-granite/granite-4.1-3b` (`# or -8b`) | `VLLM_BASE_URL` | No — placeholder only |
+| Local — judge, PharosOne tuned | `openai-api/pharos-judge/pharos-judge-free` + `judge_kind: logprobs` + `judge_threshold: 0.68` | `PHAROS_JUDGE_BASE_URL` | No — placeholder only |
 | OpenRouter (cloud) | `openrouter/<vendor>/<model>` | `OPENROUTER_API_KEY` | Yes |
 
 A local deployment is set up by the **deploy-local-model** sub-skill (dispatched from pharosone's
-`0.4.1`, not from here) — by the time this skill runs, the model string is already resolved; just
-drop it into `attacker_model`/`paraphrase_model`/`judge_model` as given. Today's local judge default
-is Granite instruct + the engine's built-in judge prompt (`scoring/judge.py`); a PharosOne-tuned judge
-model is coming to Hugging Face — swapping it in later is a one-line change to `judge_model`, not a
-profile rebuild.
+`0.4.1`, not from here) — by the time this skill runs, the two model strings are already resolved; drop
+the Granite string into `attacker_model` **and** `paraphrase_model`, and the judge string into
+`judge_model`. **The PharosOne-tuned judge has shipped** — the Local judge default is
+`pharos-one/pharos-judge-free` (Q8 GGUF, auto-pulled from Hugging Face), served locally and read via
+the calibrated **logprobs** verdict: set `judge_kind: logprobs` + `judge_threshold: 0.68` alongside it
+(without them the tuned judge silently runs through the generic text templates and the `0.68` operating
+point is a no-op). Both are placeholder-key, nothing-leaves-your-box local endpoints.
+
+> Local attackers — IBM Granite 4.1, run on your hardware. When you pick Local for the attackers, both the LLM-paraphrase (variation) model and the adaptive multi-turn attacker default to IBM Granite 4.1 — a strong, permissively-licensed, self-hostable instruct model — served locally so no prompt ever leaves your infrastructure and no API key is needed. Choose the size to fit your hardware and depth: 3b (`ibm-granite/granite-4.1-3b`) is the default — fast, fits a modest CPU/GPU; 8b (`ibm-granite/granite-4.1-8b`) is stronger and closer to cloud quality but needs more RAM/VRAM and runs slower on CPU. The one resolved Granite string is written into BOTH `attacker_model` and `paraphrase_model` (with `variation_strategy: llm`), so a single local deployment powers both the paraphrase breadth and the adaptive escalation. (Adaptive attacks only use this on the model/bridge tiers; on the default mock tier the adaptive ladder is deterministic and consults no attacker model.)
+
+> Local judge — PharosOne's own tuned judge, auto-pulled from Hugging Face. When you pick Local for the judge, PharosOne uses its own purpose-built adjudication model, `pharos-one/pharos-judge-free`, pulled automatically from Hugging Face (the recommended Q8 build, `gguf/pharos-judge-free-q8_0.gguf`) and served on your own machine through llama.cpp's OpenAI-compatible endpoint — nothing about the agent's transcripts or system prompt leaves your infrastructure, and no API key is needed (the local server takes a placeholder). This is a model fine-tuned specifically for red-team breach adjudication, not a general chat model behind a prompt: its verdict is read as a calibrated first-token logit (p_breach at the Q8 operating threshold ~0.68), which is why it catches breaches a generic judge would miss. It runs as its own local endpoint (`openai-api/pharos-judge/pharos-judge-free`, on its own port), separate from the attacker model, and drops straight into `judge_model` with `judge_kind: logprobs` + `judge_threshold: 0.68` — no second decision to make. If the judge server can't be resolved the run degrades loudly (verdict UNVERIFIED, falls back to the binary oracle), never a silent pass.
 
 ## Run-safety settings (set these or the run fights you)
 

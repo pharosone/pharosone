@@ -310,6 +310,8 @@ def _apply_batch_judge(log, probe: Probe, run_config: RunConfig, api_key: str | 
                 api_key=api_key,
                 batch_size=run_config.judge_batch_size,
                 timeout_s=run_config.judge_timeout_s,
+                judge_kind=run_config.judge_kind,
+                judge_threshold=run_config.judge_threshold,
             )
         )
     except Exception as e:  # judge infra failure: keep binary verdict, don't kill the run

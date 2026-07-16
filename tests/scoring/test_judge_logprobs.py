@@ -70,6 +70,16 @@ def test_threshold_is_the_calibrated_low_point(monkeypatch):
     assert conf_hi is True and conf_lo is False
 
 
+def test_q8_operating_threshold_0_68_boundary(monkeypatch):
+    # The Q8 Local judge operating point is 0.68. sigmoid(x)=0.68 at x≈0.7538, so a logit diff just
+    # ABOVE that (0.80 -> p≈0.690) confirms True, just BELOW (0.70 -> p≈0.668) confirms False, at
+    # threshold=0.68 exactly — this is the operating point the deploy-local-model skill hands back.
+    conf_hi, p_hi, _ = _run(monkeypatch, _out([("yes", 0.80), ("no", 0.0)]), threshold=0.68)  # diff 0.80
+    conf_lo, p_lo, _ = _run(monkeypatch, _out([("yes", 0.70), ("no", 0.0)]), threshold=0.68)  # diff 0.70
+    assert p_hi > 0.68 > p_lo
+    assert conf_hi is True and conf_lo is False
+
+
 def test_logprob_diff_equals_logit_diff_normalisation_cancels(monkeypatch):
     # Shift BOTH logprobs by the same constant (a different softmax normalisation): p_breach is invariant.
     _, p1, _ = _run(monkeypatch, _out([("yes", -0.5), ("no", -2.0)]))

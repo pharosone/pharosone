@@ -8,7 +8,10 @@ quoted response is NOT a success.
 
 By design this runs ONLY on binary-positive trials (see `probe_oracle_scorer`): final success =
 binary AND judge-confirms. Clean trials never reach the judge, so cost is bounded to candidate
-breaches. Default model is gpt-5-mini via OpenRouter (cheap)."""
+breaches. No `judge_model` configured => the judge is DISABLED (success == binary, the legitimate
+offline path); there is no implicit hosted default. The Local-onboarding default is PharosOne's own
+`pharos-judge-free`, served locally and read by the calibrated logprobs verdict
+(`judge_confirms_logprobs`) at the Q8 operating point — see the logit-read section below."""
 from __future__ import annotations
 
 import json
