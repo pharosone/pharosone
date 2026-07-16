@@ -1,6 +1,6 @@
 [project]
 name = "pharosone-security-scanner"
-version = "0.1.1"
+version = "0.2.0"
 description = "PharosOne Security Scanner — a behavioral vulnerability scanner (red-team) for AI agents"
 readme = "README.md"
 requires-python = ">=3.12"
