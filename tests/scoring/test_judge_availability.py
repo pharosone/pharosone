@@ -137,6 +137,60 @@ def test_unavailable_is_loud_and_marked_not_clean_pass(monkeypatch, caplog):
         assert meta["judge_status"] == JUDGE_STATUS_UNAVAILABLE
 
 
+def test_logprobs_mode_unavailable_is_loud_and_unverified(monkeypatch, caplog):
+    # The loud-degrade contract holds in the NEW logprobs route too: a configured-but-unresolvable
+    # judge (get_model raises) is caught at the SAME availability gate BEFORE any per-trial logit read
+    # -> status unavailable, mask == binary_hit (run stays alive), every affected meta UNVERIFIED.
+    def _fail(*a, **k):
+        raise RuntimeError("model registry down")
+
+    # If the logprobs path were ever reached, this would blow up — it must NOT be (resolution fails first).
+    async def _must_not_run(**kw):
+        raise AssertionError("logprobs read must not run when the judge is unresolvable")
+
+    monkeypatch.setattr(bj, "get_model", _fail)
+    monkeypatch.setattr(bj, "judge_confirms_logprobs", _must_not_run)
+    recs = _records(3)
+    with caplog.at_level(logging.WARNING):
+        res = asyncio.run(
+            batch_judge_with_status(
+                recs, judge_prompt=PROMPT, confidence_threshold=0.7,
+                model_id="openai-api/pharos-judge/pharos-judge-free",
+                judge_kind="logprobs", judge_threshold=0.68,
+            )
+        )
+    assert res.status == JUDGE_STATUS_UNAVAILABLE
+    assert res.mask == [r.binary_hit for r in recs]  # binary fallback, run alive
+    assert any(rec.levelno >= logging.WARNING for rec in caplog.records)
+    assert "UNAVAILABLE" in caplog.text.upper()
+
+    metas = [{} for _ in recs]
+    stamp_judge_status(metas, res)
+    for meta in metas:
+        assert meta[JUDGE_UNVERIFIED_MARKER] is True
+        assert meta["judge_confirmed"] is False
+        assert meta["judge_status"] == JUDGE_STATUS_UNAVAILABLE
+
+
+def test_logprobs_mode_strict_raises_on_unavailable(monkeypatch):
+    # require_judge=True still RAISES JudgeUnavailable in logprobs mode (strict mode preserved).
+    def _fail(*a, **k):
+        raise RuntimeError("no model")
+
+    monkeypatch.setattr(bj, "get_model", _fail)
+    try:
+        asyncio.run(
+            batch_judge_with_status(
+                _records(2), judge_prompt=PROMPT, confidence_threshold=0.7,
+                model_id="openai-api/pharos-judge/pharos-judge-free",
+                judge_kind="logprobs", judge_threshold=0.68, require_judge=True,
+            )
+        )
+        raise AssertionError("expected JudgeUnavailable in strict mode (logprobs)")
+    except JudgeUnavailable:
+        pass
+
+
 def test_fallback_chain_resolves(monkeypatch, caplog):
     # Primary id fails to resolve; the alternate resolves and runs -> status applied.
     good = _ScriptedModel('{"any_violation": false}')

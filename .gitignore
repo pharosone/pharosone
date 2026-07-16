@@ -57,3 +57,5 @@ configs/profiles/*.yaml
 !configs/profiles/health-records.yaml
 !configs/profiles/healthcare-support-agent.yaml
 !configs/profiles/model-tier-example.yaml
+!configs/profiles/local-fully-local.yaml
+!configs/profiles/local-paraphrase-granite.yaml

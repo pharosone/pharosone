@@ -24,7 +24,13 @@ import logging
 import re
 from dataclasses import dataclass, field, replace
 
-from probe_engine.scoring.judge import JudgeUnavailable, get_model, resolve_judge_model
+from probe_engine.scoring.judge import (
+    _JUDGE_THRESHOLD_DEFAULT,
+    JudgeUnavailable,
+    get_model,
+    judge_confirms_logprobs,
+    resolve_judge_model,
+)
 from probe_engine.util.resilient_generate import ResilientGenerateError, resilient_generate
 
 logger = logging.getLogger(__name__)
@@ -244,6 +250,86 @@ async def _judge_chunk(
     return parse_pass2(out2.completion or "", n, confidence_threshold), True
 
 
+def _is_logprob_degrade(confirmed: bool, reason: str) -> bool:
+    """A per-record logit-read DEGRADE (no usable yes/no logprobs, or a model/timeout failure), as
+    opposed to a genuine 'safe' verdict. `judge_confirms_logprobs` signals BOTH degrade paths with a
+    reason prefixed 'judge unavailable' (and p_breach 0.0); a real verdict's reason is 'p_breach=…'.
+    A degraded record must fall back to its own binary_hit + UNVERIFIED — never a silent pass."""
+    return not confirmed and str(reason).startswith("judge unavailable")
+
+
+async def _logprobs_batch(
+    records: list[TrialRecord],
+    *,
+    judge_prompt: str,
+    model_id: str,
+    threshold: float,
+    api_key: str | None,
+    batch_size: int,
+    timeout_s: float,
+    max_retries: int,
+) -> "BatchJudgeResult":
+    """Per-trial logit-read adjudication for the tuned judge (``judge_kind == 'logprobs'``).
+
+    The tuned judge is a per-RECORD first-token logit read (p_breach = sigmoid(logit_yes - logit_no)
+    > threshold), NOT a batched yes/no — so each record is adjudicated INDEPENDENTLY via
+    ``judge_confirms_logprobs`` instead of the two-pass PASS1/PASS2 generate templates. A record whose
+    read degrades (no usable logprobs / a model or timeout failure) falls back to THAT record's
+    binary_hit marked UNVERIFIED; ALL records degrading -> status UNAVAILABLE (loud, never a clean
+    pass), mirroring the generate path's all-chunk-fail case. ``batch_size`` (>0) bounds concurrency in
+    waves; 0 -> all records concurrently. ``timeout_s``/``max_retries`` bound each per-record call."""
+    n = len(records)
+    wave = batch_size if batch_size and batch_size > 0 else n
+
+    async def _one(rec: TrialRecord) -> "tuple[bool, bool]":
+        """(success, verified) for one trial. verified=False => degraded to binary_hit + UNVERIFIED."""
+        try:
+            confirmed, _p_breach, reason = await judge_confirms_logprobs(
+                judge_prompt=judge_prompt,
+                transcript=rec.transcript,
+                tool_calls=rec.tool_calls,
+                reply=rec.reply,
+                model_id=model_id,
+                threshold=threshold,
+                api_key=api_key,
+                timeout_s=timeout_s,
+                max_retries=max_retries,
+            )
+        except Exception as e:  # defensive: judge_confirms_logprobs already swallows its own failures
+            logger.warning("logprob judge raised for a trial (%r) — degraded to binary/UNVERIFIED", e)
+            return bool(rec.binary_hit), False
+        if _is_logprob_degrade(confirmed, reason):
+            return bool(rec.binary_hit), False
+        return bool(confirmed), True
+
+    full_mask = [False] * n
+    unverified: set[int] = set()
+    for start in range(0, n, wave):
+        wave_recs = records[start : start + wave]
+        results = await asyncio.gather(*(_one(r) for r in wave_recs))
+        for j, (succ, verified) in enumerate(results):
+            full_mask[start + j] = succ
+            if not verified:
+                unverified.add(start + j)
+
+    if unverified and len(unverified) == n:
+        # Every record's logit read degraded -> binary fallback, all UNVERIFIED (loud, NOT a clean pass).
+        logger.warning(
+            "logprob judge: ALL %d trial(s) degraded (no usable yes/no logprobs / model failure) — "
+            "verdict UNVERIFIED, fell back to the binary oracle for every trial.", n,
+        )
+        return BatchJudgeResult(
+            mask=full_mask, status=JUDGE_STATUS_UNAVAILABLE,
+            error="all logprob judge reads degraded", unverified_indices=set(range(n)),
+        )
+    if unverified:
+        logger.warning(
+            "logprob judge: %d/%d trial(s) UNVERIFIED (their logit read degraded) — those fell back "
+            "to the binary oracle; the rest are judge verdicts.", len(unverified), n,
+        )
+    return BatchJudgeResult(mask=full_mask, status=JUDGE_STATUS_APPLIED, unverified_indices=unverified)
+
+
 async def batch_judge_with_status(
     records: list[TrialRecord],
     *,
@@ -255,8 +341,10 @@ async def batch_judge_with_status(
     batch_size: int = 0,
     timeout_s: float = _JUDGE_TIMEOUT_S,
     max_retries: int = _JUDGE_MAX_RETRIES,
+    judge_kind: str = "generate",
+    judge_threshold: float | None = None,
 ) -> BatchJudgeResult:
-    """Availability-aware two-pass batch judge (B6). Returns mask + a machine-detectable status.
+    """Availability-aware batch judge (B6). Returns mask + a machine-detectable status.
 
     Three cases (only the last is the dangerous silent-degrade this fixes):
       - NO judge configured (`model_id` falsy) OR no semantic check (`judge_prompt` falsy) ->
@@ -266,7 +354,14 @@ async def batch_judge_with_status(
         a LOUD warning is logged, the mask falls back to binary_hit (the run stays alive), and
         callers MUST treat the verdict as UNVERIFIED — the executor wrapper stamps each meta with
         JUDGE_UNVERIFIED_MARKER so it is never mistaken for a clean judge pass. With
-        `require_judge=True`, raises `JudgeUnavailable` instead of degrading (strict mode)."""
+        `require_judge=True`, raises `JudgeUnavailable` instead of degrading (strict mode).
+
+    `judge_kind` selects HOW resolved verdicts are read. "generate" (default) = the two-pass
+    PASS1/PASS2 text templates below — byte-identical to prior behavior. "logprobs" routes the tuned
+    PharosOne judge per-TRIAL through the calibrated first-token logit read
+    (`judge_confirms_logprobs`, p_breach > threshold), where threshold = (`judge_threshold` if not
+    None else `_JUDGE_THRESHOLD_DEFAULT`). Both kinds share the no_judge / unavailable / applied
+    contract above (resolution is the SAME availability gate) and both respect batch_size/timeout."""
     n = len(records)
     binary = [bool(r.binary_hit) for r in records]
 
@@ -293,6 +388,19 @@ async def batch_judge_with_status(
             e, n, JUDGE_UNVERIFIED_MARKER,
         )
         return BatchJudgeResult(mask=binary, status=JUDGE_STATUS_UNAVAILABLE, error=str(e))
+
+    # LOGPROBS route: the tuned judge is a per-record first-token logit read, so it is adjudicated
+    # PER-TRIAL via judge_confirms_logprobs INSTEAD of the two-pass generate templates below. The
+    # resolution above is still the availability gate (an unresolvable configured judge already
+    # returned "unavailable" + binary fallback). judge_confirms_logprobs re-resolves via judge.get_model
+    # (cached); pass the FIRST configured candidate id (a single local judge string in the common case).
+    if judge_kind == "logprobs":
+        thr = judge_threshold if judge_threshold is not None else _JUDGE_THRESHOLD_DEFAULT
+        lp_model_id = model_id if isinstance(model_id, str) else next(c for c in model_id if c)
+        return await _logprobs_batch(
+            records, judge_prompt=judge_prompt, model_id=lp_model_id, threshold=thr,
+            api_key=api_key, batch_size=batch_size, timeout_s=timeout_s, max_retries=max_retries,
+        )
 
     # Judge in chunks (batch_size<=0 -> ONE chunk = all records, i.e. today's behavior). Each chunk's
     # records are re-indexed 0..len-1 so the model's returned indices map back to chunk positions; a
@@ -354,6 +462,8 @@ async def batch_judge(
     batch_size: int = 0,
     timeout_s: float = _JUDGE_TIMEOUT_S,
     max_retries: int = _JUDGE_MAX_RETRIES,
+    judge_kind: str = "generate",
+    judge_threshold: float | None = None,
 ) -> list[bool]:
     """Two-pass judge over all `records`. Returns a per-record success mask (len == records).
 
@@ -374,5 +484,7 @@ async def batch_judge(
         batch_size=batch_size,
         timeout_s=timeout_s,
         max_retries=max_retries,
+        judge_kind=judge_kind,
+        judge_threshold=judge_threshold,
     )
     return result.mask
