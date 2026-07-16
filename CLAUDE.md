@@ -172,3 +172,15 @@ framework-agent template.
 - `docs/design/` — the design specs; code comments reference these as "spec §N".
 - `configs/profiles/` — example run profiles (system prompt + tool inventory + industry + depth).
 - `examples/industries/` — per-vertical example configs.
+
+## Operating rules (infra / cost)
+
+- **CPU-only pods for CPU-only jobs (user rule).** Any task that does NOT need a GPU — e.g. llama.cpp
+  quantize / GGUF convert / CPU-inference eval — must run on a **CPU pod**, never a GPU pod. Do not pay
+  for an idle GPU. Launch via the pod launcher's `--cpu` mode (RunPod `computeType=CPU`, cpu5c/cpu5g
+  flavors, ~$0.96/hr vs ~$3/hr GPU); take a GPU only when the work genuinely uses it. Full fleet rules
+  live in the `runpod-fleet` skill.
+- **Never trade quality for speed/cost without explicit confirmation (user rule).** Do not cut,
+  sub-sample, truncate, skip, cap, or otherwise reduce rigor/coverage/resolution on your own initiative —
+  even under autonomous authorization. If such a tradeoff arises, STOP, state what's lost vs saved, ASK,
+  then act. See rule 5 in the `agent-conduct` skill.
