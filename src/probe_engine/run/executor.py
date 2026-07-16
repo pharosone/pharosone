@@ -391,7 +391,7 @@ def _eval_variants(
     # connections", not "Inspect default", so it must be omitted entirely when unset).
     conn_kwargs = (
         {"max_connections": run_config.max_connections}
-        if run_config.max_connections and run_config.max_connections > 0
+        if run_config.max_connections > 0
         else {}
     )
     logs = eval(
@@ -615,9 +615,11 @@ def run_corpus(
     **kwargs,
 ) -> list[Evidence]:
     """Run each probe in order. If `progress` is given it is called as
-    progress(phase, i, total, probe, evidence) with phase in {"start","done","skip"} — "start"
-    before a probe runs (evidence=None), "done" after (evidence populated), and "skip" when a probe
-    is dropped as a blind spot (evidence=None) — so callers can render live per-probe progress.
+    progress(phase, i, total, probe, evidence) with phase in {"start","done","skip","error"} — "start"
+    before a probe runs (evidence=None), "done" after (evidence populated), "skip" when a probe is
+    dropped as a blind spot (evidence=None), and "error" when every sample of a probe errored on the
+    target (evidence=None; the battery continues, the probe is never a pass) — so callers can render
+    live per-probe progress.
     `display` (in kwargs) is threaded into each probe's inspect eval.
 
     When `plan` is given, probes are run in plan-priority order (desc, stable) and each probe with an
@@ -646,8 +648,9 @@ def run_corpus(
     what only it knows (the bridge SUT is chosen inside the adapter). None (default) = byte-identical
     prior behavior (no metadata threaded into the eval).
 
-    Returns the list of Evidence (in order). Skipped blind-spot probe ids are also exposed on the
-    returned list via the `blind_spots` attribute (an `EvidenceList`) and emitted via progress."""
+    Returns the list of Evidence (in order, an `EvidenceList`). Skipped blind-spot probe ids and
+    errored probe ids are exposed on the returned list via its `blind_spots` and `errored`
+    attributes respectively, and emitted via progress ("skip" / "error") — never a pass/robust."""
     _log_channel_coverage(run_config, adapter_channels)
     ordered = _order_by_plan(probes, plan) if plan is not None else probes
     results = EvidenceList()

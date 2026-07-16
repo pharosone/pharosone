@@ -369,6 +369,21 @@ def run(
         f"uncovered={a['n_uncovered']} not_testable={a['n_not_testable']}{blind}{errored} -> {out_dir}"
     )
 
+    # If the WHOLE battery errored (every attempted probe failed on the target, zero usable
+    # observations), an exit-0 report whose overall_asr=0.00% is byte-identical to a perfectly-robust
+    # agent's. Distinguish "endpoint was down for the whole run" from "robust agent" with a loud
+    # banner + a non-zero exit — an errored probe is never a clean pass. Partial errors (some probes
+    # still produced results) stay exit-0; the per-probe disclosure above already surfaces them.
+    if report.errored_probes and a["n_probes"] == 0:
+        typer.echo(
+            f"⚠ ALL {len(report.errored_probes)} probe(s) errored on the target and NONE produced a "
+            f"usable result (tier={run_config.target.tier}) — this is NOT a clean pass; the endpoint "
+            f"was likely unreachable/misconfigured (check endpoint/auth/model). Re-run with --resume "
+            f"once the transient condition clears.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+
 
 @app.command()
 def report(

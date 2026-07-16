@@ -100,7 +100,7 @@ point is a no-op). Both are placeholder-key, nothing-leaves-your-box local endpo
 Two profile knobs are optional in general but **load-bearing** for the two configurations below.
 Both surfaced as multi-hour stalls in a real run when left at their defaults.
 
-- **`judge_batch_size` — set it (default `8`) whenever `judge_model` is a local/CPU server.** The
+- **`judge_batch_size` — set it (recommended `8`; the field default is `0` = off) whenever `judge_model` is a local/CPU server.** The
   two-pass batch judge otherwise concatenates *all* of a probe's trials into ONE prompt (~32k tokens
   at `≤10%` depth), which overflows a small-context llama.cpp server and **hangs the run on that
   probe**. `judge_batch_size: N` splits it into chunks of N (small prompts, judged concurrently, and a

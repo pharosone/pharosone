@@ -210,8 +210,8 @@ Report **BOTH** model strings (attacker and judge are separate), so `build-run-p
   `base_url` (`PHAROS_JUDGE_BASE_URL=http://127.0.0.1:8001/v1`), and the recommendation to set
   **`judge_kind: logprobs`** + **`judge_threshold: 0.68`** — without those two the tuned judge is run
   through the generic text templates and the `0.68` operating point is a silent no-op;
-- the judge server's context window (`-c 32768`) and a **`judge_batch_size` recommendation** (default
-  **8**) so the batch pass bounds each judge call regardless of depth (it caps per-trial concurrency in
+- the judge server's context window (`-c 32768`) and a **`judge_batch_size`** value to use — **8** (the
+  field default is `0` = off) — so the batch pass bounds each judge call regardless of depth (it caps per-trial concurrency in
   the logprobs path and prompt size in the generate fallback);
 - an explicit confirmation that **no real secret was ever requested** — the placeholder keys
   (`PHAROS_LOCAL_API_KEY=local`, `PHAROS_JUDGE_API_KEY=local`) were set only because the client library
