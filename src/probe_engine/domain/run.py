@@ -39,6 +39,17 @@ class Principal(StrictModel):
     scopes: list[str] = Field(default_factory=list)
 
 
+# LOCAL / self-hosted Inspect provider prefixes ONLY. A model id whose first segment is one of
+# these is an unambiguously-local model, so `_with_provider` must not prepend the target's
+# (hosted) provider to it — this keeps a local `hf/…`/`vllm/…`/`ollama/…` paraphraser local even
+# under an `openrouter` target. HOSTED providers are deliberately EXCLUDED: in the OpenRouter
+# convention a model name like `anthropic/claude-3.5-sonnet` is an org/model slug that DOES need
+# the `openrouter/` prefix, so `anthropic`/`openai`/etc. must NOT be treated as pre-qualified.
+_KNOWN_MODEL_PROVIDERS = frozenset({
+    "hf", "vllm", "ollama", "transformers", "llama-cpp", "openai-api", "mockllm",
+})
+
+
 class TargetConfig(StrictModel):
     tier: str = "mock"  # mock | model | bridge
     name: str = "mock-target"
@@ -76,11 +87,21 @@ class TargetConfig(StrictModel):
 
     def _with_provider(self, model: str | None) -> str | None:
         """Prefix a bare model slug with the provider, e.g. openrouter + 'anthropic/claude-3.5'
-        -> 'openrouter/anthropic/claude-3.5'. No-op if already prefixed or no provider set."""
+        -> 'openrouter/anthropic/claude-3.5'. No-op if already prefixed or no provider set.
+
+        A model already qualified with a KNOWN Inspect provider (e.g. a local `hf/…`,
+        `vllm/…`, `ollama/…` paraphraser under an `openrouter` target) is returned as-is —
+        so a fully-local variation model is never double-prefixed into `openrouter/hf/…`.
+        This is what lets the paraphraser run locally (no OpenRouter) while the target LLM
+        stays on a hosted provider."""
         if not model or not self.provider:
             return model
         prefix = f"{self.provider}/"
-        return model if model.startswith(prefix) else f"{prefix}{model}"
+        if model.startswith(prefix):
+            return model
+        if model.split("/", 1)[0] in _KNOWN_MODEL_PROVIDERS:
+            return model
+        return f"{prefix}{model}"
 
     def resolved_model(self) -> str | None:
         return self._with_provider(self.model)
