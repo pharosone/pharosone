@@ -29,7 +29,7 @@ from probe_engine.report.builder import build_report
 from probe_engine.report.model import Report
 from probe_engine.report.render_json import render_json
 from probe_engine.report.render_markdown import render_markdown
-from probe_engine.run.executor import run_probe
+from probe_engine.run.executor import EvidenceList, ProbeExecutionError, run_probe
 from probe_engine.run.selection import scope_excluded, select_probes
 from probe_engine.targets.mock import MockPolicy
 
@@ -173,20 +173,31 @@ def run_scan(
         return {}
 
     policy = MockPolicy(rule=req.mock_rule, threshold=req.mock_threshold)
-    evidences = []
+    # EvidenceList so build_report can surface any errored probes (mirrors run_corpus' honesty).
+    evidences = EvidenceList()
+    errored: list[str] = []
     for i, probe in enumerate(selected):
         emit("probe_start", {"probe_id": probe.id, "index": i, "total": len(selected)})
-        ev = run_probe(
-            probe,
-            run_config,
-            mock_policy=policy,
-            seed=req.seed,
-            log_dir=log_dir,
-            api_key=_resolve_key(req),
-        )
+        # A probe whose every sample errored on the target must not abort the whole scan — surface it
+        # and continue (never counted as a pass/robust; disclosed in the report's errored_probes).
+        try:
+            ev = run_probe(
+                probe,
+                run_config,
+                mock_policy=policy,
+                seed=req.seed,
+                log_dir=log_dir,
+                api_key=_resolve_key(req),
+            )
+        except ProbeExecutionError as exc:
+            errored.append(probe.id)
+            emit("probe_error", {"index": i, "total": len(selected), "probe_id": probe.id,
+                                 "message": str(exc)})
+            continue
         evidences.append(ev)
         emit("probe_done", {"index": i, "total": len(selected), **_evidence_event(ev)})
 
+    evidences.errored = errored
     report = build_report(run_config, fw, cw, evidences, scope_excluded=excluded)
     report_dict = json.loads(render_json(report))
     emit("done", {"aggregates": report_dict["aggregates"], "scope": report_dict["scope"]})

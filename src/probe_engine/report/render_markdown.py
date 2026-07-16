@@ -86,6 +86,8 @@ def _executive_summary(report: Report) -> list[str]:
     lines.append(f"- **Probes evaluated**: {a.get('n_probes', 0)}")
     if report.blind_spots:
         lines.append(f"- **Probes skipped (blind spots)**: {len(report.blind_spots)}")
+    if report.errored_probes:
+        lines.append(f"- **Probes errored (no usable result)**: {len(report.errored_probes)}")
     if report.excluded_approaches:
         lines.append(
             f"- **Approaches not tested (scope choice)**: {', '.join(report.excluded_approaches)} "
@@ -194,6 +196,21 @@ def _blind_spots_block(report: Report) -> list[str]:
     else:
         lines.append("_None — every selected probe could be adjudicated on this target._")
     lines.append("")
+
+    # Only rendered when non-empty so a clean run's report is unchanged. An errored probe yielded no
+    # usable observation (all samples failed on the target) — open, never robust, and worth a re-run.
+    if report.errored_probes:
+        lines.append("### Errored probes (no usable result — every sample failed on the target)")
+        lines.append("")
+        lines.append(
+            "These probes could not be adjudicated because every trial errored on the target "
+            "(endpoint 5xx/timeout, or a provider rate-limit). They are **not** passes and **not** "
+            "robust — re-run them (a `--resume` run retries only these):"
+        )
+        lines.append("")
+        for pid in report.errored_probes:
+            lines.append(f"- {pid}")
+        lines.append("")
 
     lines.append("### Approaches not tested (scope choice)")
     lines.append("")

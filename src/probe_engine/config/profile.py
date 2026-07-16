@@ -32,6 +32,7 @@ class RunProfile(StrictModel):
     fail_fast: bool = False          # stop a probe's trials early once a FAIL is statistically certain
     judge_batch_size: int = 0        # >0: judge a probe's trials in chunks of this size (small prompts, no hang)
     judge_timeout_s: float = 60.0    # per judge model call timeout (resilient_generate); bounds a stuck call
+    max_connections: int = 0         # >0: cap concurrent target/model connections (bridge rate-limit safety); 0 = Inspect default
     # planner_model / synthesis_model live on `target:` (TargetConfig) — default Opus 4.8, provider-aware
     n_variants: int = 5
     epochs: int = 2
@@ -76,6 +77,7 @@ def run_config_from_profile(profile: RunProfile, run_id: str, timestamp: str) ->
         fail_fast=profile.fail_fast,
         judge_batch_size=profile.judge_batch_size,
         judge_timeout_s=profile.judge_timeout_s,
+        max_connections=profile.max_connections,
         n_variants=profile.n_variants,
         epochs=profile.epochs,
         approaches=profile.approaches,

@@ -35,8 +35,19 @@ from probe_engine.variation.generate import generate_variants
 from probe_engine.variation.llm_paraphrase import make_llm_attack_mutator
 
 
+class ProbeExecutionError(RuntimeError):
+    """A single probe produced no usable observation because EVERY sample errored on the target
+    (e.g. a bridge endpoint 5xx/timeout, or a provider rate-limit that failed all trials at once).
+
+    Raised by `run_probe` so `run_corpus` can catch THIS specific case — surfacing the probe as
+    errored and continuing the battery — without swallowing an unrelated bug that also raises
+    RuntimeError. An errored probe is never counted as pass/robust; it is disclosed distinctly from a
+    blind-spot skip (which is a scoping decision, not a failure)."""
+
+
 class EvidenceList(list):
-    """A plain list of Evidence that ALSO carries the ids of probes skipped as blind spots (B2).
+    """A plain list of Evidence that ALSO carries the ids of probes skipped as blind spots (B2) and
+    the ids of probes that ERRORED out (every sample failed on the target).
 
     Subclassing `list` keeps it byte-for-byte compatible with the old `list[Evidence]` return
     (indexing, iteration, len, list comprehensions all unchanged); callers that don't know about
@@ -47,6 +58,8 @@ class EvidenceList(list):
         # Per-instance — NOT a class-level mutable default (which would alias one list across all
         # EvidenceList instances if ever mutated in place rather than reassigned).
         self.blind_spots: list[str] = []
+        # Probes that errored out (all samples failed on the target) — surfaced, never a silent pass.
+        self.errored: list[str] = []
 
 
 def _eval_model(run_config: RunConfig) -> str:
@@ -371,6 +384,14 @@ def _eval_variants(
     eval as ADDITIVE metadata (real sut/gen/judge models + the mockllm placeholder note), so the
     on-disk .eval self-documents the real models. None -> byte-identical prior behavior."""
     task = compile_probe(probe, variants, run_config, mock_policy, api_key, external)
+    # OPT-IN concurrency cap (bridge rate-limit safety). Only threaded when >0 so the default run is
+    # byte-identical to before this field existed (passing max_connections=0 would mean "no
+    # connections", not "Inspect default", so it must be omitted entirely when unset).
+    conn_kwargs = (
+        {"max_connections": run_config.max_connections}
+        if run_config.max_connections and run_config.max_connections > 0
+        else {}
+    )
     logs = eval(
         task,
         model=_resolve_model(run_config, api_key),
@@ -380,6 +401,7 @@ def _eval_variants(
         # ADDITIVE provenance (never overwrites the core eval-model). None (default) = no metadata
         # threaded == today's exact eval call.
         metadata=_run_provenance(run_config, run_metadata),
+        **conn_kwargs,
     )
     unverified = _apply_batch_judge(logs[0], probe, run_config, api_key)
     # Persist the JUDGED log back to its .eval (B1a): Inspect wrote the PROVISIONAL binary success
@@ -461,7 +483,7 @@ def run_probe(
     if not trials and n_errors:
         # Every sample errored on the target — surface it loudly instead of returning a silent
         # "not_run / asr=0", which would read as a robust agent (spec honesty, esp. bridge).
-        raise RuntimeError(
+        raise ProbeExecutionError(
             f"probe {probe.id}: target produced no usable result — all {n_errors} sample(s) "
             f"errored (tier={run_config.target.tier}; check the endpoint/auth/model). "
             f"eval log status={getattr(ref_log, 'status', '?')}"
@@ -628,6 +650,7 @@ def run_corpus(
     ordered = _order_by_plan(probes, plan) if plan is not None else probes
     results = EvidenceList()
     blind_spots: list[str] = []
+    errored: list[str] = []
     total = len(ordered)
     seed = kwargs.get("seed", 0)
     for i, p in enumerate(ordered, 1):
@@ -667,11 +690,25 @@ def run_corpus(
 
         if progress:
             progress("start", i, total, p, None)
-        ev = run_probe(p, rc, run_metadata=run_metadata, **kwargs)
+        # A single probe whose every sample errored on the target (bridge 5xx/timeout, a provider
+        # rate-limit burst) must NOT abort the whole battery and discard the probes already run.
+        # Surface it as errored (disclosed in the report, never counted as pass/robust) and continue.
+        # It is NOT checkpointed, so a later resume retries it once the transient condition clears.
+        # Any OTHER exception is a real bug — let it propagate (don't mask it as an errored probe).
+        try:
+            ev = run_probe(p, rc, run_metadata=run_metadata, **kwargs)
+        except ProbeExecutionError as e:
+            errored.append(p.id)
+            logger.warning("PROBE ERRORED — %s produced no usable result, continuing battery: %s",
+                           p.id, e)
+            if progress:
+                progress("error", i, total, p, None)
+            continue
         results.append(ev)
         if resume and out_dir and chash is not None:
             checkpoint.save(out_dir, p.id, chash, ev)
         if progress:
             progress("done", i, total, p, ev)
     results.blind_spots = blind_spots
+    results.errored = errored
     return results

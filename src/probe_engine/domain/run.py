@@ -153,6 +153,14 @@ class RunConfig(StrictModel):
     # verdict and the run never hangs. judge_timeout_s bounds each judge model call.
     judge_batch_size: int = 0
     judge_timeout_s: float = 60.0
+    # OPT-IN cap on concurrent target/model connections (decision: bridge-tier rate-limit safety).
+    # Inspect's eval() defaults to adaptive concurrency ramping to ~100 parallel connections. Against
+    # a real external agent (bridge) whose provider rate-limits — and whose own client may have no 429
+    # retry — that burst errors every sample of a probe at once, which run_probe surfaces as a hard
+    # failure. 0 (default) = Inspect's default adaptive concurrency (byte-identical prior behavior).
+    # When >0, the value is passed to eval(max_connections=...) so the run stays under the provider's
+    # limit instead of relying on a caller-side monkeypatch.
+    max_connections: int = 0
     planner: str = "deterministic"  # "deterministic" | "llm" — how trials are allocated across eligible probes
     max_trials: int | None = None   # optional global budget the planner scales allocations to fit
     synthesize_n: int = 0           # number of new candidate probes the synthesis LLM proposes (0 = off)

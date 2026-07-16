@@ -50,3 +50,14 @@ approaches: [single_turn, chain, adaptive]
 n_variants: 25
 epochs: 3
 thresholds: { asr_pass: 0.05, target_asr: 0.05, confidence: 0.7 }
+
+# --- Run-safety knobs (optional; load-bearing for two setups — see build-run-profile) ---
+# Set when judge_model is a LOCAL/CPU server: the batch judge otherwise sends all of a probe's trials
+# in ONE ~32k-token prompt and overflows a small-context server, hanging the run. Chunks of 8 keep
+# each judge prompt small (judged concurrently); a stuck chunk degrades to binary+UNVERIFIED, no hang.
+# judge_batch_size: 8
+# judge_timeout_s: 60            # bound each judge model call (default 60)
+# Set for a BRIDGE run whose provider rate-limits: caps concurrent connections so an Inspect burst
+# (defaults toward ~100) doesn't 429 every sample of a probe at once. 0/unset = Inspect's adaptive
+# default (fine for mock tier). Replaces the old adapter-side eval monkeypatch.
+# max_connections: 6

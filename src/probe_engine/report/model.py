@@ -117,6 +117,11 @@ class Report(StrictModel):
     # Surfaced in the audit artifact so a skip is never invisible — never a silent pass (invariant 3).
     # Defaults to [] and is dropped from the JSON when empty (byte-compatible with before).
     blind_spots: list[str] = []
+    # ids of probes that ERRORED OUT at run time — every sample failed on the target (bridge
+    # 5xx/timeout, a provider rate-limit burst), so the probe yielded no usable observation. NOT a
+    # blind spot (a scoping decision) and NOT a pass — disclosed so an errored probe is never invisible
+    # and never read as robust. Defaults to [] and is dropped from the JSON when empty.
+    errored_probes: list[str] = []
     # DELIBERATE scope reductions: attack approaches (scenario families) the operator chose NOT to
     # run, and the probe ids dropped for that reason. NOT blind spots, NOT passes — disclosed so a
     # narrowed run never reads as robust against an approach it never exercised. Empty by default.
