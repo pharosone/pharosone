@@ -61,6 +61,15 @@ uv add pharosone-security-scanner        # or: pip install pharosone-security-sc
 
 The skill files are portable; the certification *run* uses the `probe-engine` package from step 1a.
 
+> [!NOTE]
+> The repo also ships **`setup-dialog-streaming`** — a standalone skill that wires a bot codebase to
+> stream its conversations (messages **and tool calls**) into the PharosOne dialog-analysis cabinet,
+> via the Python / TypeScript / Go SDKs or raw HTTP. Install just that one:
+>
+> ```bash
+> npx skills add pharosone/pharosone --skill setup-dialog-streaming
+> ```
+
 **2. Point it at your agent, in Claude Code**
 
 Ask Claude to red-team your agent and give it the path to the agent's repository — for example:
