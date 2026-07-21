@@ -42,7 +42,8 @@ curl -sS -X POST "$PHAROSONE_BASE_URL/api/v1/send-message" \
       "result_preview": "3 articles: Refunds, Returns, Chargebacks"
     }
   }'
-# → 202 {"status":"received","dialog_id":"dlg_…","message_index":7,"created":true}
+# → 202 {"status":"received","dialog_id":"dlg_…","message_index":7,"created":true,
+#         "flagged":false,"fast_scan":"ok"}
 ```
 
 ### 3. send-dialog (snapshot)
@@ -60,7 +61,22 @@ curl -sS -X POST "$PHAROSONE_BASE_URL/api/v1/send-dialog" \
       {"role": "bot", "text": "Refunds are processed within 5 business days."}
     ]
   }'
-# → 202 {"status":"received","dialog_id":"dlg_…"}
+# → 202 {"status":"received","dialog_id":"dlg_…","flagged":false,"fast_scan":"ok"}
+```
+
+### 4. dialog-analysis (detailed verdict on demand)
+
+```bash
+# Synchronous: the server computes the deep analysis if needed and blocks until
+# it's done (worst case ~75s) — give curl a generous --max-time.
+curl -sS --max-time 90 -X POST "$PHAROSONE_BASE_URL/api/v1/dialog-analysis" \
+  -H "Authorization: Bearer $PHAROSONE_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"agent_id": "support-bot", "session_id": "chat-4211"}'
+# or select by the dialog_id from a send response (one selector, not both):
+#   -d '{"dialog_id": "dlg_…"}'
+# → 200 {"dialog_id":"dlg_…","status":"flagged","analysis_status":"done",
+#         "flagged":true,"flag":{…,"mappings":[…]},"effectiveness":{…}}
 ```
 
 ## Python — `pharosone-dialogs`
@@ -90,8 +106,18 @@ client.send_message(agent_id="support-bot", session_id=chat_id,
                     tool_call=ToolCall(name="search_kb", label="Search knowledge base",
                                        status="ok", args_preview="query='refund policy'",
                                        result_preview="3 articles"))
-client.send_message(agent_id="support-bot", session_id=chat_id,
-                    message_id=f"{chat_id}-{seq + 2}", role="bot", text=reply_text)
+res = client.send_message(agent_id="support-bot", session_id=chat_id,
+                          message_id=f"{chat_id}-{seq + 2}", role="bot", text=reply_text)
+
+# Every send response carries the fast verdict for the dialog so far.
+# fast_scan == "failed" means the scan didn't run — NO verdict, never treat as clean.
+if res["fast_scan"] == "ok" and res["flagged"]:
+    # Synchronous: blocks while the server computes the deep analysis (~75s worst
+    # case); get_analysis uses a >=90s per-call timeout by default (timeout= overrides).
+    verdict = client.get_analysis(agent_id="support-bot", session_id=chat_id)
+    # or: client.get_analysis(dialog_id=res["dialog_id"]) — one selector form, not both
+    if verdict["analysis_status"] == "done" and verdict["flagged"]:
+        print(verdict["flag"]["title"], verdict["flag"]["severity"], verdict["effectiveness"])
 
 # snapshot alternative (batch/backfill)
 client.send_dialog(agent_id="support-bot", session_id=chat_id, messages=[
@@ -141,6 +167,22 @@ await client.sendMessage({
   toolCall: { name: "search_kb", label: "Search knowledge base", status: "ok",
               argsPreview: "query='refund policy'", resultPreview: "3 articles" },
 });
+const res = await client.sendMessage({
+  agentId: "support-bot", sessionId: chatId,
+  messageId: `${chatId}-${seq + 2}`, role: "bot", text: replyText,
+});
+
+// Every send result carries the fast verdict for the dialog so far.
+// fastScan === "failed" means the scan didn't run — NO verdict, never treat as clean.
+if (res.fastScan === "ok" && res.flagged) {
+  // Synchronous: blocks while the server computes the deep analysis (~75s worst case);
+  // getAnalysis defaults this call's timeout to >=90s ({ timeoutMs } overrides).
+  const verdict = await client.getAnalysis({ agentId: "support-bot", sessionId: chatId });
+  // or: client.getAnalysis({ dialogId: res.dialogId }) — one selector form, not both
+  if (verdict.analysisStatus === "done" && verdict.flagged) {
+    console.log(verdict.flag?.title, verdict.flag?.severity, verdict.effectiveness);
+  }
+}
 
 // snapshot alternative (batch/backfill)
 await client.sendDialog({
@@ -178,6 +220,25 @@ _, err = client.SendMessage(ctx, pharosone.SendMessageParams{
         ResultPreview: pharosone.Ptr("3 articles"),
     },
 })
+res, err := client.SendMessage(ctx, pharosone.SendMessageParams{
+    AgentID: "support-bot", SessionID: chatID,
+    MessageID: pharosone.Ptr(fmt.Sprintf("%s-%04d", chatID, seq+1)),
+    Role:      pharosone.RoleBot, Text: replyText,
+})
+
+// Every send result carries the fast verdict for the dialog so far.
+// FastScanFailed means the scan didn't run — NO verdict, never treat as clean.
+if err == nil && res.FastScan == pharosone.FastScanOK && res.Flagged {
+    // Synchronous: blocks while the server computes the deep analysis (~75s worst
+    // case); GetAnalysis stretches the per-request timeout to >=90s automatically.
+    verdict, err := client.GetAnalysis(ctx, pharosone.GetAnalysisParams{
+        AgentID: pharosone.Ptr("support-bot"), SessionID: pharosone.Ptr(chatID),
+    })
+    // or: pharosone.GetAnalysisParams{DialogID: pharosone.Ptr(res.DialogID)} — one form, not both
+    if err == nil && verdict.AnalysisStatus == "done" && verdict.Flagged {
+        fmt.Println(verdict.Flag.Title, verdict.Flag.Severity, verdict.Effectiveness)
+    }
+}
 
 // snapshot alternative (batch/backfill)
 _, err = client.SendDialog(ctx, pharosone.SendDialogParams{

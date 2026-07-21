@@ -7,9 +7,10 @@ description: Use when you need to wire an AI agent or bot codebase to stream its
 
 Wire a bot codebase to the PharosOne dialog-analysis cabinet so every conversation it holds —
 messages **and tool calls** — lands there for analysis. The integration is three small ingest
-calls (`upsert-agent`, `send-message`, `send-dialog`); the real work is picking the right
-transport for the codebase, instrumenting the bot loop without disturbing it, and proving one
-round-trip end to end. Wire contract: `references/api.md`. Runnable code: `references/snippets.md`.
+calls (`upsert-agent`, `send-message`, `send-dialog`) plus an optional `dialog-analysis` fetch
+for the detailed verdict; the real work is picking the right transport for the codebase,
+instrumenting the bot loop without disturbing it, and proving one round-trip end to end.
+Wire contract: `references/api.md`. Runnable code: `references/snippets.md`.
 
 **Announce at start:** "Using setup-dialog-streaming to wire <bot> into the PharosOne cabinet."
 
@@ -22,6 +23,8 @@ round-trip end to end. Wire contract: `references/api.md`. Runnable code: `refer
 4. Upsert the agent with `description` + `goal` (`upsert-agent`).
 5. Instrument the bot loop: per-turn `send-message` with `message_id` idempotency, including a
    `tool_call` entry for every tool invocation — or a `send-dialog` snapshot for batch/backfill.
+   Read `flagged` / `fast_scan` from every send response; when `flagged` with `fast_scan: "ok"`,
+   fetch the detailed verdict via the analysis method (`fast_scan: "failed"` ≠ clean).
 6. Verify: one curl `send-message` round-trip, then confirm the dialog appears in the cabinet.
 
 ## 1. Detect language & framework
@@ -42,13 +45,14 @@ instrumentation points for step 5.
 | Go | `sdk/go` module, `pharosone.New(baseURL, apiKey)` |
 | Anything else, or no-new-deps policy | raw HTTP (three POSTs, `curl`-shaped) |
 
-All SDKs are zero-runtime-dependency and share the same three methods (`upsertAgent` /
-`sendMessage` / `sendDialog`) with typed `ToolCall` and `Message`, and all fall back to
-`PHAROSONE_BASE_URL` / `PHAROSONE_API_KEY` when constructor arguments are omitted. Constructors
-are idiomatic per language — Python `PharosOne(base_url, api_key)`, TypeScript
-`new PharosOne({ baseUrl, apiKey })` (single options object), Go `pharosone.New(baseURL, apiKey)`;
-copy exact forms from `references/snippets.md`. Raw HTTP is always a valid choice — the whole
-wire contract is three endpoints (`references/api.md`).
+All SDKs are zero-runtime-dependency and share the same four methods (`upsertAgent` /
+`sendMessage` / `sendDialog` / `getAnalysis` — snake_case in Python, `GetAnalysis` in Go) with
+typed `ToolCall` and `Message`, and all fall back to `PHAROSONE_BASE_URL` / `PHAROSONE_API_KEY`
+when constructor arguments are omitted. Constructors are idiomatic per language — Python
+`PharosOne(base_url, api_key)`, TypeScript `new PharosOne({ baseUrl, apiKey })` (single options
+object), Go `pharosone.New(baseURL, apiKey)`; copy exact forms from `references/snippets.md`.
+Raw HTTP is always a valid choice — the whole wire contract is four endpoints
+(`references/api.md`).
 
 ## 3. Base URL + key env var (never the secret)
 
@@ -88,6 +92,21 @@ the codebase's own system prompt / README, confirmed with the user.
 Both paths key the dialog on `(agent_id, session_id)`; use the bot's own conversation/chat id as
 `session_id` so a conversation maps to exactly one dialog.
 
+### React to the fast verdict
+
+Every send response carries a synchronous fast verdict for the dialog so far: `flagged` (bool)
+and `fast_scan` (`"ok"` | `"failed"`). Wire this branch into the loop:
+
+- `flagged: true` with `fast_scan: "ok"` → fetch the detailed finding (flag with AIUC-1 / OWASP
+  mappings + effectiveness) via the SDK analysis method — `get_analysis` / `getAnalysis` /
+  `GetAnalysis` — or raw `POST /api/v1/dialog-analysis`. The call is synchronous: the server
+  computes the deep analysis on demand and blocks up to ~75 s; the SDKs stretch its timeout to
+  ≥90 s automatically (raw HTTP callers must set their own).
+- `fast_scan: "failed"` → the scan did not run: there is **NO verdict**. Never treat it as
+  clean — surface it per the user's alerting policy, but don't block the bot (the write landed).
+- Fetching details is optional: the cabinet computes the same analysis lazily when someone opens
+  the dialog. Call the method only when the bot side itself acts on verdicts.
+
 ### tool_call — send every tool invocation
 
 Analysis sees tool calls only if you send them. For each tool invocation emit a message with
@@ -118,7 +137,8 @@ Prove the wiring with the real key from env before touching the bot's runtime (f
 `references/snippets.md`):
 
 1. `curl` one `send-message` with a test `session_id` — expect HTTP 202 and a body with
-   `"status": "received"`, a `dialog_id`, `message_index`, `created: true`.
+   `"status": "received"`, a `dialog_id`, `message_index`, `created: true`, plus the fast
+   verdict fields `flagged` and `fast_scan`.
 2. Ask the user to open the cabinet's **Dialogs** page and confirm the test dialog shows the
    message (and the tool call row, if you sent one).
 3. Then run the instrumented bot for one real turn and confirm that dialog appears too.

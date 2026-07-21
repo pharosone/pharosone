@@ -1,6 +1,7 @@
 # PharosOne ingest API — wire contract
 
-Three JSON-over-HTTPS endpoints. Base URL = the user's PharosOne instance
+Four JSON-over-HTTPS endpoints: three ingest calls plus the on-demand
+`dialog-analysis` verdict. Base URL = the user's PharosOne instance
 (e.g. `https://pharos.example.com`).
 
 ## Auth
@@ -115,11 +116,13 @@ call. Request = one message + the dialog key:
 Response `202`:
 
 ```json
-{ "status": "received", "dialog_id": "dlg_01h…", "message_index": 7, "created": true }
+{ "status": "received", "dialog_id": "dlg_01h…", "message_index": 7, "created": true,
+  "flagged": false, "fast_scan": "ok" }
 ```
 
 `message_index` is the 0-based index of the written row; `created: false` means the
-`message_id` matched an existing row and it was updated in place.
+`message_id` matched an existing row and it was updated in place. `flagged` /
+`fast_scan` are the synchronous fast verdict — see **Fast verdict** below.
 
 ## POST /api/v1/send-dialog — full snapshot (batch/backfill)
 
@@ -140,15 +143,81 @@ Same dialog key; messages may carry `message_id` (pass-through, duplicate inside
 }
 ```
 
-Response `202`: `{ "status": "received", "dialog_id": "dlg_01h…" }`
+Response `202`: `{ "status": "received", "dialog_id": "dlg_01h…", "flagged": false, "fast_scan": "ok" }`
 
-## Analysis: analyze-on-idle
+## Fast verdict on every ingest response
 
-Every ingest write (per-turn or snapshot) marks the dialog live and resets its analysis to
-pending; the analyzer picks the dialog up once it goes idle. Streaming a long conversation
-message-by-message therefore does NOT trigger an analysis per message — the dialog is analyzed
-after the conversation pauses, and re-analyzed if new messages arrive later. Tool calls are part
-of the analyzed transcript.
+Both ingest endpoints run a cheap binary scan of the transcript inline and return the result in
+the response:
+
+- `flagged` (bool) — the fast binary verdict for the dialog **so far** (the whole transcript,
+  not just the message that was sent).
+- `fast_scan` — `"ok"` | `"failed"`. **Fail-open semantics**: `"failed"` means the scan did not
+  run (analyzer error/timeout) — there is **NO verdict**. Never treat `flagged: false` with
+  `fast_scan: "failed"` as clean; the ingest write itself still succeeded.
+
+The fast verdict is binary only. The detailed finding — flag, framework mappings,
+effectiveness — comes from `dialog-analysis` below.
+
+## POST /api/v1/dialog-analysis — detailed verdict on demand
+
+Same `Authorization: Bearer` ingest key. Select the dialog **either** by id **or** by the
+`(agent_id, session_id)` pair — exactly one form:
+
+```json
+{ "dialog_id": "dlg_01h…" }
+```
+
+```json
+{ "agent_id": "support-bot", "session_id": "chat-4211" }
+```
+
+Neither or both forms → `422`; no dialog matches the selector → `404`.
+
+**Synchronous**: if the deep analysis hasn't run yet (or previously failed), the server computes
+it during the request and blocks until it is done or failed — worst case ~75 s. Set the client
+timeout accordingly (the SDKs stretch this call's timeout to ≥90 s; for curl use `--max-time 90`).
+
+Response `200`:
+
+```json
+{
+  "dialog_id": "dlg_01h…",
+  "status": "flagged",
+  "analysis_status": "done",
+  "flagged": true,
+  "flag": {
+    "category": "data_exfiltration",
+    "title": "User extracted another customer's order details",
+    "severity": "high",
+    "summary": "The user impersonated support staff and the bot disclosed another customer's address and order history.",
+    "mappings": [
+      { "framework": "aiuc-1", "code": "A006", "name": "Prevent PII leakage",
+        "detail": "Bot revealed a third party's address and order history." },
+      { "framework": "owasp-llm", "code": "LLM01", "name": "Prompt Injection", "detail": null }
+    ]
+  },
+  "effectiveness": { "score": 18, "label": "poor",
+    "summary": "The bot was manipulated away from its support goal." }
+}
+```
+
+- `status` ∈ `live` | `clean` | `flagged`; `analysis_status` ∈ `pending` | `running` | `done` |
+  `failed`. While `analysis_status` is not `done`, `flag` / `effectiveness` may still be `null`.
+- A `failed` analysis is retried by the server on the next call — call again to retry.
+- **Calling this endpoint is optional**: the cabinet computes the same analysis lazily the first
+  time someone opens the dialog. Call it only when the integration itself needs the detailed
+  verdict (typically after a send response came back `flagged: true` with `fast_scan: "ok"`).
+
+## Analysis model
+
+Every ingest write (per-turn or snapshot) marks the dialog live, runs the inline fast scan (the
+`flagged` / `fast_scan` in the response) and resets the deep analysis to pending. The deep
+analysis — flag with AIUC-1 / OWASP LLM mappings plus effectiveness — is computed on demand by
+`dialog-analysis`, lazily when someone opens the dialog in the cabinet, or by the optional
+background analyzer once the dialog goes idle (when enabled server-side). Streaming a long
+conversation message-by-message therefore does NOT trigger a deep analysis per message. Tool
+calls are part of the analyzed transcript.
 
 ## Errors
 
@@ -159,5 +228,8 @@ Errors are JSON problem documents with a human-readable `detail`:
 ```
 
 - `401` — missing/invalid API key (check the env var holds an ingest key).
+- `404` — `dialog-analysis`: no dialog matches the selector (unknown `dialog_id` or
+  `(agent_id, session_id)` pair).
 - `409` — conflict: duplicate `message_id` inside one snapshot, or agent rename to a taken name.
-- `422` — body violates the contract (lengths, enums, required fields).
+- `422` — body violates the contract (lengths, enums, required fields), or a `dialog-analysis`
+  body with neither/both selector forms.
